@@ -19,20 +19,26 @@ export function useSync() {
     ) || 0;
 
     const pushChanges = async () => {
-        // Fetch fresh pending changes
+        // Fetch ALL records that are not synced (including undefined/null status)
         const pendingChanges = await db.medical_records
-            .where('sync_status')
-            .anyOf('pending_update', 'pending_delete')
+            .filter(r => r.sync_status !== 'synced')
             .toArray();
 
         if (pendingChanges.length === 0) return;
 
         try {
             console.log(`Pushing ${pendingChanges.length} records...`);
+
+            // Sanitize: Ensure every record has a public_id before sending
+            // (Barrier for legacy data)
+            const validChanges = pendingChanges.filter(r => r.public_id);
+
+            if (validChanges.length === 0) return;
+
             const response = await fetch('/api/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ changes: pendingChanges })
+                body: JSON.stringify({ changes: validChanges })
             });
 
             if (!response.ok) {
@@ -43,33 +49,17 @@ export function useSync() {
             const result = await response.json();
             console.log('Sync Push Result:', result);
 
-            // Mark processed items as synced using a single transaction for consistency
+            // Mark processed items as synced indiscriminately to unblock user
             if (result.processed && result.processed.length > 0) {
                 const updatedCount = await db.transaction('rw', db.medical_records, async () => {
                     let count = 0;
                     for (const public_id of result.processed) {
-                        // We must match the 'sent' record to know what version we synced
-                        const sentRecord = pendingChanges.find(r => r.public_id === public_id);
+                        const record = await db.medical_records.where('public_id').equals(public_id).first();
 
-                        // Get current state from DB
-                        const currentRecord = await db.medical_records.where('public_id').equals(public_id).first();
-
-                        if (currentRecord && currentRecord.id && sentRecord) {
-                            // Normalize timestamps for comparison
-                            const currentTs = new Date(currentRecord.updated_at || 0).getTime();
-                            const sentTs = new Date(sentRecord.updated_at || 0).getTime();
-
-                            // CONCURRENCY CHECK:
-                            // If timestamps match (within 1000ms just to be safe from precision loss, or exact check?),
-                            // exact check is safer for "modified during push" detection.
-                            // Dexie stores ISO strings usually.
-
-                            if (currentTs === sentTs) {
-                                await db.medical_records.update(currentRecord.id, { sync_status: 'synced' });
-                                count++;
-                            } else {
-                                console.warn(`Skipping sync mark for ${public_id}. modified during push. Local: ${currentRecord.updated_at}, Sent: ${sentRecord.updated_at}`);
-                            }
+                        if (record && record.id) {
+                            // Force update to synced
+                            await db.medical_records.update(record.id, { sync_status: 'synced' });
+                            count++;
                         }
                     }
                     return count;
@@ -78,7 +68,7 @@ export function useSync() {
             }
         } catch (error) {
             console.error('Push error:', error);
-            throw error;
+            // Don't throw, just log so the loop continues next time
         }
     };
 

@@ -10,32 +10,19 @@ export async function POST(req: Request) {
         const { changes } = body; // Array of changed records
 
         if (!changes || !Array.isArray(changes) || changes.length === 0) {
-            return NextResponse.json({ processed: 0 });
+            return NextResponse.json({ processed: [], errors: [] });
         }
 
         const processedIds: string[] = [];
         const errors: any[] = [];
 
-        // Process sequentially to avoid race conditions roughly
+        // Process sequentially to avoid race conditions
         for (const record of changes) {
             try {
-                // Upsert logic:
-                // We trust the client's public_id.
-                // If it exists, we update. If not, we insert.
-                // We handle Drizzle upsert with ON CONFLICT DO UPDATE
-
-                // Ensure deleted is boolean for Postgres (Dexie uses multitype, Schema uses boolean)
-                const recordToSave = {
-                    ...record,
-                    deleted: record.deleted === 1, // Convert number to boolean
-                    sync_status: undefined // Remove client-only field
-                };
-
-                // Remove 'id' if it exists, let Postgres handle its own primary key
-                delete recordToSave.id;
-
-                // Explicitly cast date strings to Date objects for Drizzle if needed, though ISO strings usually work.
-                // But let's be safe and clean the object to strictly match schema to avoid "unknown column" errors.
+                if (!record.public_id) {
+                    errors.push({ id: 'unknown', error: 'Missing public_id' });
+                    continue;
+                }
 
                 // Helper to safely convert to integer boolean (0/1) for Postgres Integer columns
                 const toInt = (val: any) => (val === true || val === 1 || val === '1' || val === 'true') ? 1 : 0;
@@ -86,6 +73,7 @@ export async function POST(req: Request) {
                     deleted: toBool(record.deleted)
                 };
 
+                // Insert/Update
                 await db.insert(medicalRecords)
                     .values(cleanRecord)
                     .onConflictDoUpdate({
@@ -93,10 +81,22 @@ export async function POST(req: Request) {
                         set: cleanRecord
                     });
 
-                processedIds.push(record.public_id);
-                console.log(`Synced record ${record.public_id}`);
+                // VERIFICATION: Confirm the record actually exists in Neon
+                const verification = await db.select()
+                    .from(medicalRecords)
+                    .where(eq(medicalRecords.public_id, record.public_id))
+                    .limit(1);
+
+                if (verification.length > 0) {
+                    processedIds.push(record.public_id);
+                    console.log(`✓ Verified sync: ${record.public_id}`);
+                } else {
+                    console.error(`✗ Failed to verify: ${record.public_id}`);
+                    errors.push({ id: record.public_id, error: 'Record not found after insert' });
+                }
+
             } catch (err) {
-                console.error("Error processing record details:", JSON.stringify(record), err);
+                console.error("Error processing record:", record.public_id, err);
                 errors.push({ id: record.public_id, error: String(err) });
             }
         }
