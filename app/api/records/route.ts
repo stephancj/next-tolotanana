@@ -1,12 +1,13 @@
 
 import { NextResponse } from 'next/server';
-import db from '@/lib/db';
+import { getDb } from '@/lib/db';
 
 // Force dynamic rendering (server-side only)
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
+        const db = getDb();
         const stmt = db.prepare('SELECT * FROM medical_records ORDER BY created_at DESC');
         const records = stmt.all();
         return NextResponse.json(records);
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
         // Explicitly convert boolean-like inputs to 0 or 1 for SQLite
         const toInt = (val: unknown) => (val ? 1 : 0);
 
+        const db = getDb();
         const stmt = db.prepare(`
       INSERT INTO medical_records (
         dossier_number,

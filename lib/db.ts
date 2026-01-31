@@ -2,12 +2,11 @@ import Database from 'better-sqlite3';
 import path from 'path';
 
 // Initialize the database file in the project root
-const dbPath = path.join(process.cwd(), 'tolotanana.db');
-const db = new Database(dbPath, { verbose: console.log });
-db.pragma('journal_mode = WAL');
+// Singleton instance
+let dbInstance: any = null;
 
 // Define table schema
-const initDb = () => {
+const initDb = (db: any) => {
     const createTableQuery = `
     CREATE TABLE IF NOT EXISTS medical_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,7 +67,7 @@ interface ColumnInfo {
     pk: number;
 }
 
-const migrateDb = () => {
+const migrateDb = (db: any) => {
     try {
         const columns = db.pragma('table_info(medical_records)') as ColumnInfo[];
         const hasAnesthesiaType = columns.some(col => col.name === 'anesthesia_type');
@@ -87,8 +86,15 @@ const migrateDb = () => {
     }
 };
 
-// Initialize on import (safe for this simple setup)
-initDb();
-migrateDb();
+export const getDb = () => {
+    if (!dbInstance) {
+        const dbPath = path.join(process.cwd(), 'tolotanana.db');
+        dbInstance = new Database(dbPath, { verbose: console.log });
+        dbInstance.pragma('journal_mode = WAL');
 
-export default db;
+        // Initialize and migrate on first connection
+        initDb(dbInstance);
+        migrateDb(dbInstance);
+    }
+    return dbInstance;
+};
