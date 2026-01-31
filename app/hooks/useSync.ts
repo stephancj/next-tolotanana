@@ -19,21 +19,35 @@ export function useSync() {
     ) || 0;
 
     const pushChanges = async () => {
+        console.log('[SYNC] Starting pushChanges...');
+
         // Fetch ALL records that are not synced (including undefined/null status)
         const pendingChanges = await db.medical_records
             .filter(r => r.sync_status !== 'synced')
             .toArray();
 
-        if (pendingChanges.length === 0) return;
+        console.log(`[SYNC] Found ${pendingChanges.length} pending records`);
+
+        if (pendingChanges.length === 0) {
+            console.log('[SYNC] No pending changes, skipping push');
+            return;
+        }
 
         try {
-            console.log(`Pushing ${pendingChanges.length} records...`);
-
             // Sanitize: Ensure every record has a public_id before sending
-            // (Barrier for legacy data)
             const validChanges = pendingChanges.filter(r => r.public_id);
 
-            if (validChanges.length === 0) return;
+            console.log(`[SYNC] Valid records with public_id: ${validChanges.length}`);
+            if (validChanges.length > 0) {
+                console.log('[SYNC] Sample record:', validChanges[0]);
+            }
+
+            if (validChanges.length === 0) {
+                console.warn('[SYNC] No valid records with public_id!');
+                return;
+            }
+
+            console.log(`[SYNC] Sending ${validChanges.length} records to /api/sync...`);
 
             const response = await fetch('/api/sync', {
                 method: 'POST',
@@ -41,33 +55,43 @@ export function useSync() {
                 body: JSON.stringify({ changes: validChanges })
             });
 
+            console.log(`[SYNC] Response status: ${response.status}`);
+
             if (!response.ok) {
                 const text = await response.text();
+                console.error('[SYNC] Push failed:', text);
                 throw new Error(`Push failed: ${text}`);
             }
 
             const result = await response.json();
-            console.log('Sync Push Result:', result);
+            console.log('[SYNC] Push Result:', result);
+            console.log(`[SYNC] Processed IDs: ${result.processed?.length || 0}`);
+            console.log(`[SYNC] Errors: ${result.errors?.length || 0}`);
 
             // Mark processed items as synced indiscriminately to unblock user
             if (result.processed && result.processed.length > 0) {
+                console.log(`[SYNC] Marking ${result.processed.length} records as synced...`);
+
                 const updatedCount = await db.transaction('rw', db.medical_records, async () => {
                     let count = 0;
                     for (const public_id of result.processed) {
                         const record = await db.medical_records.where('public_id').equals(public_id).first();
 
                         if (record && record.id) {
-                            // Force update to synced
                             await db.medical_records.update(record.id, { sync_status: 'synced' });
                             count++;
+                        } else {
+                            console.warn(`[SYNC] Could not find record ${public_id} to mark as synced`);
                         }
                     }
                     return count;
                 });
-                console.log(`Updated locally synced status for ${updatedCount} records.`);
+                console.log(`[SYNC] ✓ Updated ${updatedCount} records to synced status`);
+            } else {
+                console.warn('[SYNC] No records were processed by server!');
             }
         } catch (error) {
-            console.error('Push error:', error);
+            console.error('[SYNC] Push error:', error);
             // Don't throw, just log so the loop continues next time
         }
     };
