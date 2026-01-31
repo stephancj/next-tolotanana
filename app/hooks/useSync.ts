@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, MedicalRecord } from '@/lib/client-db';
+import { db } from '@/lib/client-db';
 
 const SYNC_INTERVAL_MS = 30000; // Sync every 30 seconds if online
 
@@ -55,15 +55,20 @@ export function useSync() {
                         const currentRecord = await db.medical_records.where('public_id').equals(public_id).first();
 
                         if (currentRecord && currentRecord.id && sentRecord) {
+                            // Normalize timestamps for comparison
+                            const currentTs = new Date(currentRecord.updated_at || 0).getTime();
+                            const sentTs = new Date(sentRecord.updated_at || 0).getTime();
+
                             // CONCURRENCY CHECK:
-                            // If the record in DB has the same 'updated_at' timestamp as the one we just sent,
-                            // it means it hasn't been modified since we started the push properly.
-                            // If timestamps differ, user edited it while we were pushing -> DO NOT mark as synced.
-                            if (currentRecord.updated_at === sentRecord.updated_at) {
+                            // If timestamps match (within 1000ms just to be safe from precision loss, or exact check?),
+                            // exact check is safer for "modified during push" detection.
+                            // Dexie stores ISO strings usually.
+
+                            if (currentTs === sentTs) {
                                 await db.medical_records.update(currentRecord.id, { sync_status: 'synced' });
                                 count++;
                             } else {
-                                console.log(`Skipping sync mark for ${public_id}: Record modified during push.`);
+                                console.warn(`Skipping sync mark for ${public_id}. modified during push. Local: ${currentRecord.updated_at}, Sent: ${sentRecord.updated_at}`);
                             }
                         }
                     }

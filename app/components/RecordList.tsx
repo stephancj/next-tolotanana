@@ -142,21 +142,27 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
             <div className="flex gap-4 mb-6 border-b border-gray-200">
                 <button
                     onClick={() => setActiveTab('local')}
-                    className={`pb-2 px-4 font-bold text-lg transition-colors border-b-2 ${activeTab === 'local'
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                    className={`pb-2 px-4 font-bold text-lg transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'local'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
-                    📱 Local (SQLite)
+                    <span>📱 Local (SQLite)</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                        {localRecords?.length || 0}
+                    </span>
                 </button>
                 <button
                     onClick={() => setActiveTab('remote')}
-                    className={`pb-2 px-4 font-bold text-lg transition-colors border-b-2 ${activeTab === 'remote'
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                    className={`pb-2 px-4 font-bold text-lg transition-colors border-b-2 flex items-center gap-2 ${activeTab === 'remote'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
-                    ☁️ Serveur (Neon)
+                    <span>☁️ Serveur (Neon)</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                        {remoteRecords.length > 0 ? remoteRecords.length : (activeTab === 'remote' && remoteLoading ? '...' : '?')}
+                    </span>
                 </button>
             </div>
 
