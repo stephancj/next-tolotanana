@@ -27,31 +27,29 @@ export function useSync() {
                 body: JSON.stringify({ changes })
             });
 
-            if (!response.ok) throw new Error('Push failed');
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`Push failed: ${text}`);
+            }
 
             const result = await response.json();
+            console.log('Sync Push Result:', result);
 
             // Mark processed items as synced
             if (result.processed && result.processed.length > 0) {
-                await db.transaction('rw', db.medical_records, async () => {
+                const updatedCount = await db.transaction('rw', db.medical_records, async () => {
+                    let count = 0;
                     for (const public_id of result.processed) {
                         // Find local id by public_id
                         const record = await db.medical_records.where('public_id').equals(public_id).first();
                         if (record && record.id) {
-                            if (record.sync_status === 'pending_delete') {
-                                // Physically delete if it was a delete operation confirmed by server
-                                // Or keep it as soft delete? Ideally keep soft delete but mark synced.
-                                // Let's keep soft delete marked as synced to know it's done.
-                                await db.medical_records.update(record.id, { sync_status: 'synced' });
-                                // Alternatively, if we want to clean up offline space:
-                                // await db.medical_records.delete(record.id); 
-                                // But keeping it allows history.
-                            } else {
-                                await db.medical_records.update(record.id, { sync_status: 'synced' });
-                            }
+                            await db.medical_records.update(record.id, { sync_status: 'synced' });
+                            count++;
                         }
                     }
+                    return count;
                 });
+                console.log(`Updated locally synced status for ${updatedCount} records.`);
             }
 
         } catch (error) {
