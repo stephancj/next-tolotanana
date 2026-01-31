@@ -77,52 +77,7 @@ export function useSync() {
         }
     };
 
-    const pullChanges = async () => {
-        const lastPull = localStorage.getItem('last_pull_timestamp');
-        const url = lastPull ? `/api/sync?since=${lastPull}` : '/api/sync';
 
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Pull failed');
-
-            const data = await response.json();
-            const changes = data.changes as MedicalRecord[];
-
-            if (changes.length > 0) {
-                console.log(`Pulling ${changes.length} records...`);
-                await db.transaction('rw', db.medical_records, async () => {
-                    for (const remoteRecord of changes) {
-                        const localRecord = await db.medical_records.where('public_id').equals(remoteRecord.public_id!).first();
-
-                        if (localRecord) {
-                            // CONFLICT RESOLUTION
-                            // If local is 'synced', we safely overwrite with newer server version.
-                            // If local is 'pending', we avoid overwriting to not lose local unsent work (server will eventually get it on next push).
-                            if (localRecord.sync_status === 'synced') {
-                                await db.medical_records.put({
-                                    ...remoteRecord,
-                                    id: localRecord.id, // Preserve Dexie PK
-                                    sync_status: 'synced'
-                                });
-                            }
-                        } else {
-                            // New record from server
-                            await db.medical_records.add({ ...remoteRecord, sync_status: 'synced' });
-                        }
-                    }
-                });
-            }
-
-            if (data.timestamp) {
-                localStorage.setItem('last_pull_timestamp', data.timestamp);
-                setLastSyncTime(new Date().toLocaleTimeString());
-            }
-
-        } catch (error) {
-            console.error('Pull error:', error);
-            throw error;
-        }
-    };
 
     const sync = useCallback(async () => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -138,13 +93,11 @@ export function useSync() {
         setStatus('syncing');
 
         try {
-            // STEP 1: PUSH (Send changes first)
+            // STEP 1: PUSH (Send changes only)
             await pushChanges();
 
-            // STEP 2: PULL (Get updates after)
-            await pullChanges();
-
             setStatus('idle');
+            setLastSyncTime(new Date().toLocaleTimeString());
         } catch (err) {
             console.error("Sync process error:", err);
             setStatus('error');

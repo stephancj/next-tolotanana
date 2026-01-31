@@ -1,15 +1,15 @@
 
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { db } from '@/lib/neon-db';
+import { medicalRecords } from '@/lib/schema';
+import { desc } from 'drizzle-orm';
 
 // Force dynamic rendering (server-side only)
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const db = getDb();
-        const stmt = db.prepare('SELECT * FROM medical_records ORDER BY created_at DESC');
-        const records = stmt.all();
+        const records = await db.select().from(medicalRecords).orderBy(desc(medicalRecords.created_at));
         return NextResponse.json(records);
     } catch (error) {
         console.error('Error fetching records:', error);
@@ -20,68 +20,35 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const {
-            dossier_number,
-            last_name, first_name, dob, age, gender,
-            phone1, phone2, address,
-            weight, height, bmi, blood_pressure, temperature, heart_rate, respiratory_rate, spo2,
-            clinical_diagnosis, intervention_type, observation, program_mission,
-            history_diabetes, history_hypertension, history_asthma, history_cardiopathy, history_none, history_others, asa_score,
-            anesthesia_type, anesthesia_observation
-        } = body;
 
-        // Explicitly convert boolean-like inputs to 0 or 1 for SQLite
-        const toInt = (val: unknown) => (val ? 1 : 0);
+        // Ensure boolean fields are boolean
+        const sanitizeBoolean = (val: any) => val === true || val === 1 || val === '1';
 
-        const db = getDb();
-        const stmt = db.prepare(`
-      INSERT INTO medical_records (
-        dossier_number,
-        last_name, first_name, dob, age, gender,
-        phone1, phone2, address,
-        weight, height, bmi, blood_pressure, temperature, heart_rate, respiratory_rate, spo2,
-        clinical_diagnosis, intervention_type, observation, program_mission,
-        history_diabetes, history_hypertension, history_asthma, history_cardiopathy, history_none, history_others, asa_score,
-        anesthesia_type, anesthesia_observation
-      ) VALUES (
-        @dossier_number,
-        @last_name, @first_name, @dob, @age, @gender,
-        @phone1, @phone2, @address,
-        @weight, @height, @bmi, @blood_pressure, @temperature, @heart_rate, @respiratory_rate, @spo2,
-        @clinical_diagnosis, @intervention_type, @observation, @program_mission,
-        @history_diabetes, @history_hypertension, @history_asthma, @history_cardiopathy, @history_none, @history_others, @asa_score,
-        @anesthesia_type, @anesthesia_observation
-      )
-    `);
+        const recordData = {
+            ...body,
+            program_mission: sanitizeBoolean(body.program_mission),
+            history_diabetes: sanitizeBoolean(body.history_diabetes),
+            history_hypertension: sanitizeBoolean(body.history_hypertension),
+            history_asthma: sanitizeBoolean(body.history_asthma),
+            history_cardiopathy: sanitizeBoolean(body.history_cardiopathy),
+            history_none: sanitizeBoolean(body.history_none),
+            // Ensure numeric fields are numbers
+            weight: body.weight ? String(body.weight) : '',
+            height: body.height ? String(body.height) : '',
+            bmi: body.bmi ? String(body.bmi) : '',
+            temperature: body.temperature ? String(body.temperature) : '',
+            heart_rate: body.heart_rate ? String(body.heart_rate) : '',
+            respiratory_rate: body.respiratory_rate ? String(body.respiratory_rate) : '',
+            spo2: body.spo2 ? String(body.spo2) : '',
+            asa_score: body.asa_score ? String(body.asa_score) : '',
+            deleted: false,
+            created_at: new Date(),
+            updated_at: new Date()
+        };
 
-        const info = stmt.run({
-            dossier_number: dossier_number || '',
-            last_name, first_name, dob, age, gender,
-            phone1: phone1 || '', phone2: phone2 || '', address: address || '',
-            weight: parseFloat(weight) || 0,
-            height: parseFloat(height) || 0,
-            bmi: parseFloat(bmi) || 0,
-            blood_pressure: blood_pressure || '',
-            temperature: parseFloat(temperature) || 0,
-            heart_rate: parseInt(heart_rate) || 0,
-            respiratory_rate: parseInt(respiratory_rate) || 0,
-            spo2: parseInt(spo2) || 0,
-            clinical_diagnosis: clinical_diagnosis || '',
-            intervention_type: intervention_type || '',
-            observation: observation || '',
-            program_mission: toInt(program_mission),
-            history_diabetes: toInt(history_diabetes),
-            history_hypertension: toInt(history_hypertension),
-            history_asthma: toInt(history_asthma),
-            history_cardiopathy: toInt(history_cardiopathy),
-            history_none: toInt(history_none),
-            history_others: history_others || '',
-            asa_score: parseInt(asa_score) || 0,
-            anesthesia_type: anesthesia_type || '',
-            anesthesia_observation: anesthesia_observation || ''
-        });
+        const result = await db.insert(medicalRecords).values(recordData).returning();
 
-        return NextResponse.json({ id: info.lastInsertRowid, success: true });
+        return NextResponse.json({ id: result[0].id, success: true });
     } catch (error) {
         console.error('Error creating record:', error);
         return NextResponse.json({ error: 'Failed to create record' }, { status: 500 });
