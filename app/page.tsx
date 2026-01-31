@@ -6,6 +6,7 @@ import RecordList from './components/RecordList';
 
 export default function Home() {
   const [view, setView] = useState<'form' | 'list'>('form');
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
 
   useEffect(() => {
     // Listen for custom event from FicheMedicale component
@@ -23,9 +24,26 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-pink-50/30 font-[family-name:var(--font-geist-sans)]">
       {view === 'form' ? (
-        <FicheMedicale />
+        <FicheMedicale
+          key={selectedRecord ? selectedRecord.id : 'new'}
+          initialData={selectedRecord}
+          onSuccess={() => {
+            setSelectedRecord(null);
+            // Optional: switch to list or stay on form
+          }}
+          onNew={() => setSelectedRecord(null)} // Reset form
+        />
       ) : (
-        <RecordList onBack={() => setView('form')} />
+        <RecordList
+          onBack={() => {
+            setSelectedRecord(null);
+            setView('form');
+          }}
+          onEdit={(record: any) => {
+            setSelectedRecord(record);
+            setView('form');
+          }}
+        />
       )}
     </main>
   );

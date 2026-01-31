@@ -3,7 +3,12 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MedicalRecord } from '@/lib/client-db';
 
-export default function RecordList({ onBack }: { onBack: () => void }) {
+interface RecordListProps {
+    onBack: () => void;
+    onEdit?: (record: MedicalRecord) => void;
+}
+
+export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const records = useLiveQuery<MedicalRecord[]>(
         () => db.medical_records.orderBy('created_at').reverse().toArray()
     );
@@ -11,6 +16,17 @@ export default function RecordList({ onBack }: { onBack: () => void }) {
     // Default to empty array if undefined
     const displayRecords = records || [];
     const loading = !records;
+
+    const deleteRecord = async (id: number, name: string) => {
+        if (window.confirm(`Voulez-vous vraiment supprimer le dossier de ${name} ?`)) {
+            try {
+                await db.medical_records.delete(id);
+            } catch (error) {
+                console.error("Failed to delete record:", error);
+                alert("Erreur lors de la suppression.");
+            }
+        }
+    };
 
     const downloadCSV = () => {
         const headers = [
@@ -106,12 +122,28 @@ export default function RecordList({ onBack }: { onBack: () => void }) {
                                     <span>Âge: {r.age || '?'} ans</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1">
+                            <div className="flex flex-col items-end gap-2">
                                 <div className={`px-3 py-1 rounded-full text-xs font-bold ${r.program_mission === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                                     {r.program_mission === 1 ? 'Mission: OUI' : 'Mission: NON'}
                                 </div>
-                                <div className="text-xs text-gray-400">
+                                <div className="text-xs text-gray-400 mb-1">
                                     {new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                </div>
+                                <div className="flex gap-2">
+                                    {onEdit && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                                            className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
+                                        >
+                                            Voir / Modifier
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
+                                        className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition"
+                                    >
+                                        Supprimer
+                                    </button>
                                 </div>
                             </div>
                         </div>

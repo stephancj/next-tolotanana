@@ -66,9 +66,17 @@ const VitalCard = ({ label, name, value, unit, icon, onChange, color = "indigo" 
     </div>
 );
 
-export default function FicheMedicale() {
+
+interface FicheMedicaleProps {
+    initialData?: any;
+    onSuccess?: () => void;
+    onNew?: () => void;
+}
+
+export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMedicaleProps) {
     const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
+
+    const defaultState = {
         dossier_number: '',
         last_name: '',
         first_name: '',
@@ -99,7 +107,19 @@ export default function FicheMedicale() {
         asa_score: '',
         anesthesia_type: '',
         anesthesia_observation: ''
-    });
+    };
+
+    const [formData, setFormData] = useState(initialData ? {
+        ...defaultState,
+        ...initialData,
+        // Ensure boolean fields are actually booleans for checkboxes
+        program_mission: !!initialData.program_mission,
+        history_diabetes: !!initialData.history_diabetes,
+        history_hypertension: !!initialData.history_hypertension,
+        history_asthma: !!initialData.history_asthma,
+        history_cardiopathy: !!initialData.history_cardiopathy,
+        history_none: !!initialData.history_none,
+    } : defaultState);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -198,50 +218,35 @@ export default function FicheMedicale() {
                 spo2: parseInt(String(payload.spo2)) || 0,
                 asa_score: parseInt(String(payload.asa_score)) || 0,
                 photo_url: '',
-                created_at: new Date().toISOString()
+                created_at: initialData?.created_at || new Date().toISOString()
             };
 
-            await import('@/lib/client-db').then(mod => mod.db.medical_records.add(recordToSave));
+            const dbModule = await import('@/lib/client-db');
+            if (initialData && initialData.id) {
+                await dbModule.db.medical_records.put({ ...recordToSave, id: initialData.id });
+                alert('Fiche mise à jour avec succès');
+            } else {
+                await dbModule.db.medical_records.add(recordToSave);
+                alert('Fiche enregistrée avec succès (Mode Offline)');
+            }
 
-            alert('Fiche enregistrée avec succès (Mode Offline)');
-            setFormData({
-                dossier_number: '',
-                last_name: '',
-                first_name: '',
-                dob: '',
-                age: '',
-                gender: '',
-                phone1: '',
-                phone2: '',
-                address: '',
-                weight: '',
-                height: '',
-                bmi: '',
-                blood_pressure: '',
-                temperature: '',
-                heart_rate: '',
-                respiratory_rate: '',
-                spo2: '',
-                clinical_diagnosis: '',
-                intervention_type: '',
-                observation: '',
-                program_mission: false,
-                history_diabetes: false,
-                history_hypertension: false,
-                history_asthma: false,
-                history_cardiopathy: false,
-                history_none: false,
-                history_others: '',
-                asa_score: '',
-                anesthesia_type: '',
-                anesthesia_observation: ''
-            });
+            if (onSuccess) onSuccess();
+
+            if (!initialData) {
+                setFormData(defaultState);
+            }
         } catch (e) {
             console.error(e);
             alert('Erreur lors de l\'enregistrement local');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleNew = () => {
+        setFormData(defaultState);
+        if (onNew) onNew();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
 
@@ -532,9 +537,11 @@ export default function FicheMedicale() {
             {/* FLOATING ACTION BAR */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full px-6 flex justify-center z-50 pointer-events-none">
                 <div className="bg-slate-900/90 backdrop-blur-md text-white px-2 py-2 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-2 pointer-events-auto scale-90 md:scale-100 transform transition-transform">
-                    <button onClick={() => window.location.reload()} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
+                    <button onClick={handleNew} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
                         <span className="text-xl">✨</span>
-                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Nouveau</span>
+                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                            {initialData ? 'Annuler Modif.' : 'Nouveau'}
+                        </span>
                     </button>
                     <div className="w-px h-8 bg-white/10"></div>
                     <button onClick={() => document.dispatchEvent(new CustomEvent('switchTab', { detail: 'list' }))} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
