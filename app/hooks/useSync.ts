@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MedicalRecord } from '@/lib/client-db';
 
@@ -8,23 +8,31 @@ export function useSync() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
     const [status, setStatus] = useState<'idle' | 'syncing' | 'error' | 'offline'>('idle');
+    const isSyncingRef = useRef(false);
 
-    // Get pending changes from local DB
-    const pendingChanges = useLiveQuery(
+    // Only used for UI indicator, does not trigger sync logic directly
+    const pendingCount = useLiveQuery(
         () => db.medical_records
             .where('sync_status')
             .anyOf('pending_update', 'pending_delete')
-            .toArray()
-    );
+            .count()
+    ) || 0;
 
-    const pushChanges = async (changes: MedicalRecord[]) => {
-        if (changes.length === 0) return;
+    const pushChanges = async () => {
+        // Fetch fresh pending changes
+        const pendingChanges = await db.medical_records
+            .where('sync_status')
+            .anyOf('pending_update', 'pending_delete')
+            .toArray();
+
+        if (pendingChanges.length === 0) return;
 
         try {
+            console.log(`Pushing ${pendingChanges.length} records...`);
             const response = await fetch('/api/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ changes })
+                body: JSON.stringify({ changes: pendingChanges })
             });
 
             if (!response.ok) {
@@ -35,12 +43,11 @@ export function useSync() {
             const result = await response.json();
             console.log('Sync Push Result:', result);
 
-            // Mark processed items as synced
+            // Mark processed items as synced using a single transaction for consistency
             if (result.processed && result.processed.length > 0) {
                 const updatedCount = await db.transaction('rw', db.medical_records, async () => {
                     let count = 0;
                     for (const public_id of result.processed) {
-                        // Find local id by public_id
                         const record = await db.medical_records.where('public_id').equals(public_id).first();
                         if (record && record.id) {
                             await db.medical_records.update(record.id, { sync_status: 'synced' });
@@ -51,7 +58,6 @@ export function useSync() {
                 });
                 console.log(`Updated locally synced status for ${updatedCount} records.`);
             }
-
         } catch (error) {
             console.error('Push error:', error);
             throw error;
@@ -67,29 +73,25 @@ export function useSync() {
             if (!response.ok) throw new Error('Pull failed');
 
             const data = await response.json();
-            const changes = data.changes as MedicalRecord[]; // Records from server
+            const changes = data.changes as MedicalRecord[];
 
             if (changes.length > 0) {
+                console.log(`Pulling ${changes.length} records...`);
                 await db.transaction('rw', db.medical_records, async () => {
                     for (const remoteRecord of changes) {
-                        // Check if we have this record
                         const localRecord = await db.medical_records.where('public_id').equals(remoteRecord.public_id!).first();
 
                         if (localRecord) {
-                            // Conflict resolution: Last Write Wins based on updated_at
-                            // Or simple: Server Wins if we are not currently editing it (pending).
-
-                            // If local is pending, we MIGHT want to keep local, OR assume server is newer.
-                            // Simple strategy: If local is synced, overwrite. If local is pending, keep local (let push handle it next).
+                            // CONFLICT RESOLUTION
+                            // If local is 'synced', we safely overwrite with newer server version.
+                            // If local is 'pending', we avoid overwriting to not lose local unsent work (server will eventually get it on next push).
                             if (localRecord.sync_status === 'synced') {
-                                // Overwrite
                                 await db.medical_records.put({
                                     ...remoteRecord,
-                                    id: localRecord.id, // Keep local ID
+                                    id: localRecord.id, // Preserve Dexie PK
                                     sync_status: 'synced'
                                 });
                             }
-                            // If pending, we skip overwriting so we don't lose local work.
                         } else {
                             // New record from server
                             await db.medical_records.add({ ...remoteRecord, sync_status: 'synced' });
@@ -98,7 +100,6 @@ export function useSync() {
                 });
             }
 
-            // Update timestamp
             if (data.timestamp) {
                 localStorage.setItem('last_pull_timestamp', data.timestamp);
                 setLastSyncTime(new Date().toLocaleTimeString());
@@ -116,39 +117,37 @@ export function useSync() {
             return;
         }
 
+        // Prevent overlapping syncs
+        if (isSyncingRef.current) return;
+        isSyncingRef.current = true;
+
         setIsSyncing(true);
         setStatus('syncing');
 
         try {
-            // 1. Push PENDING changes
-            if (pendingChanges && pendingChanges.length > 0) {
-                await pushChanges(pendingChanges);
-            }
+            // STEP 1: PUSH (Send changes first)
+            await pushChanges();
 
-            // 2. Pull server changes
+            // STEP 2: PULL (Get updates after)
             await pullChanges();
 
             setStatus('idle');
         } catch (err) {
-            console.error(err);
+            console.error("Sync process error:", err);
             setStatus('error');
         } finally {
             setIsSyncing(false);
+            isSyncingRef.current = false;
         }
-    }, [pendingChanges]);
+    }, []); // No dependencies, safe to pass to useEffect
 
-    // Auto-sync interval
+    // Auto-sync schedule
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (status !== 'syncing') {
-                sync();
-            }
-        }, SYNC_INTERVAL_MS);
-
-        // Also sync on mount
+        // Initial sync
         sync();
 
-        // Sync when coming back online
+        const interval = setInterval(sync, SYNC_INTERVAL_MS);
+
         const handleOnline = () => sync();
         window.addEventListener('online', handleOnline);
 
@@ -156,7 +155,13 @@ export function useSync() {
             clearInterval(interval);
             window.removeEventListener('online', handleOnline);
         };
-    }, [sync, status]);
+    }, [sync]);
 
-    return { isSyncing, status, lastSyncTime, pendingCount: pendingChanges?.length || 0, manualSync: sync };
+    return {
+        isSyncing,
+        status,
+        lastSyncTime,
+        pendingCount,
+        manualSync: sync
+    };
 }
