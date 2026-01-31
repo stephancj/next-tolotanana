@@ -37,6 +37,12 @@ export async function POST(req: Request) {
                 // Explicitly cast date strings to Date objects for Drizzle if needed, though ISO strings usually work.
                 // But let's be safe and clean the object to strictly match schema to avoid "unknown column" errors.
 
+                // Helper to safely convert to integer boolean (0/1) for Postgres Integer columns
+                const toInt = (val: any) => (val === true || val === 1 || val === '1' || val === 'true') ? 1 : 0;
+
+                // Helper to safely convert to boolean for Postgres Boolean columns
+                const toBool = (val: any) => (val === true || val === 1 || val === '1' || val === 'true');
+
                 // sanitized object
                 const cleanRecord: any = {
                     public_id: record.public_id,
@@ -61,19 +67,23 @@ export async function POST(req: Request) {
                     clinical_diagnosis: record.clinical_diagnosis,
                     intervention_type: record.intervention_type,
                     observation: record.observation,
-                    program_mission: record.program_mission,
-                    history_diabetes: record.history_diabetes,
-                    history_hypertension: record.history_hypertension,
-                    history_asthma: record.history_asthma,
-                    history_cardiopathy: record.history_cardiopathy,
-                    history_none: record.history_none,
+
+                    // Explicitly cast to integer 0/1 for schema compatibility
+                    program_mission: toInt(record.program_mission),
+                    history_diabetes: toInt(record.history_diabetes),
+                    history_hypertension: toInt(record.history_hypertension),
+                    history_asthma: toInt(record.history_asthma),
+                    history_cardiopathy: toInt(record.history_cardiopathy),
+                    history_none: toInt(record.history_none),
+
                     history_others: record.history_others,
                     asa_score: record.asa_score,
                     anesthesia_type: record.anesthesia_type,
                     anesthesia_observation: record.anesthesia_observation,
+
                     created_at: record.created_at ? new Date(record.created_at) : new Date(),
                     updated_at: new Date(), // Always update timestamp on sync
-                    deleted: record.deleted === 1
+                    deleted: toBool(record.deleted)
                 };
 
                 await db.insert(medicalRecords)
