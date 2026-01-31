@@ -29,7 +29,42 @@ interface VitalCardProps {
     unit: string;
     icon: React.ReactNode;
     color?: string;
+    onChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
 }
+
+const InputField = ({ label, name, placeholder, type = "text", value, onChange, className = "" }: InputFieldProps) => (
+    <div className={`flex flex-col ${className}`}>
+        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1">{label}</label>
+        <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm font-medium text-gray-700 placeholder-gray-300"
+        />
+    </div>
+);
+
+const VitalCard = ({ label, name, value, unit, icon, onChange, color = "indigo" }: VitalCardProps) => (
+    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+        <div className={`absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity text-${color}-600`}>
+            {icon}
+        </div>
+        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">{label}</label>
+        <div className="flex items-baseline gap-1">
+            <input
+                name={name}
+                value={value}
+                onChange={onChange}
+                type="number"
+                placeholder="--"
+                className="w-full bg-transparent text-2xl font-black text-gray-800 focus:outline-none p-0 border-none placeholder-gray-200"
+            />
+            <span className="text-xs font-bold text-gray-400">{unit}</span>
+        </div>
+    </div>
+);
 
 export default function FicheMedicale() {
     const [loading, setLoading] = useState(false);
@@ -209,39 +244,7 @@ export default function FicheMedicale() {
         }
     };
 
-    const InputField = ({ label, name, placeholder, type = "text", value, onChange, className = "" }: InputFieldProps) => (
-        <div className={`flex flex-col ${className}`}>
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pl-1">{label}</label>
-            <input
-                type={type}
-                name={name}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                className="w-full p-3.5 bg-gray-50 border border-gray-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm font-medium text-gray-700 placeholder-gray-300"
-            />
-        </div>
-    );
 
-    const VitalCard = ({ label, name, value, unit, icon, color = "indigo" }: VitalCardProps) => (
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-            <div className={`absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity text-${color}-600`}>
-                {icon}
-            </div>
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">{label}</label>
-            <div className="flex items-baseline gap-1">
-                <input
-                    name={name}
-                    value={value}
-                    onChange={handleChange}
-                    type="number"
-                    placeholder="--"
-                    className="w-full bg-transparent text-2xl font-black text-gray-800 focus:outline-none p-0 border-none placeholder-gray-200"
-                />
-                <span className="text-xs font-bold text-gray-400">{unit}</span>
-            </div>
-        </div>
-    );
 
     return (
         <div className="min-h-screen bg-slate-50/80 pb-32">
@@ -342,8 +345,8 @@ export default function FicheMedicale() {
 
                     {/* VITALS */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <VitalCard label="Poids" name="weight" unit="kg" value={formData.weight} icon={<Icons.Activity />} color="blue" />
-                        <VitalCard label="Taille" name="height" unit="cm" value={formData.height} icon={<Icons.Activity />} color="blue" />
+                        <VitalCard label="Poids" name="weight" unit="kg" value={formData.weight} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
+                        <VitalCard label="Taille" name="height" unit="cm" value={formData.height} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
                         <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-4 rounded-2xl shadow-lg hover:shadow-xl transition-shadow relative overflow-hidden text-white">
                             <div className="absolute top-0 right-0 p-2 opacity-20">
                                 <Icons.Activity />
@@ -359,13 +362,13 @@ export default function FicheMedicale() {
                                 />
                             </div>
                         </div>
-                        <VitalCard label="Temp" name="temperature" unit="°C" value={formData.temperature} icon={<Icons.Activity />} color="orange" />
+                        <VitalCard label="Temp" name="temperature" unit="°C" value={formData.temperature} icon={<Icons.Activity />} color="orange" onChange={handleChange} />
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <VitalCard label="Tension" name="blood_pressure" unit="mmHg" value={formData.blood_pressure} icon={<Icons.Heart />} color="red" />
-                        <VitalCard label="Pouls" name="heart_rate" unit="bpm" value={formData.heart_rate} icon={<Icons.Heart />} color="red" />
-                        <VitalCard label="Resp." name="respiratory_rate" unit="cpm" value={formData.respiratory_rate} icon={<Icons.Activity />} color="teal" />
-                        <VitalCard label="SpO2" name="spo2" unit="%" value={formData.spo2} icon={<Icons.Activity />} color="cyan" />
+                        <VitalCard label="Tension" name="blood_pressure" unit="mmHg" value={formData.blood_pressure} icon={<Icons.Heart />} color="red" onChange={handleChange} />
+                        <VitalCard label="Pouls" name="heart_rate" unit="bpm" value={formData.heart_rate} icon={<Icons.Heart />} color="red" onChange={handleChange} />
+                        <VitalCard label="Resp." name="respiratory_rate" unit="cpm" value={formData.respiratory_rate} icon={<Icons.Activity />} color="teal" onChange={handleChange} />
+                        <VitalCard label="SpO2" name="spo2" unit="%" value={formData.spo2} icon={<Icons.Activity />} color="cyan" onChange={handleChange} />
                     </div>
 
                     {/* SURGICAL */}
@@ -549,6 +552,6 @@ export default function FicheMedicale() {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
