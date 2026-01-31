@@ -73,10 +73,44 @@ interface FicheMedicaleProps {
     onNew?: () => void;
 }
 
+interface FormState {
+    dossier_number: string;
+    last_name: string;
+    first_name: string;
+    dob: string;
+    age: string | number;
+    gender: string;
+    phone1: string;
+    phone2: string;
+    address: string;
+    weight: string | number;
+    height: string | number;
+    bmi: string | number;
+    blood_pressure: string;
+    temperature: string | number;
+    heart_rate: string | number;
+    respiratory_rate: string | number;
+    spo2: string | number;
+    clinical_diagnosis: string;
+    intervention_type: string;
+    observation: string;
+    program_mission: boolean;
+    history_diabetes: boolean;
+    history_hypertension: boolean;
+    history_asthma: boolean;
+    history_cardiopathy: boolean;
+    history_none: boolean;
+    history_others: string;
+    asa_score: string | number;
+    anesthesia_type: string;
+    anesthesia_observation: string;
+    [key: string]: string | number | boolean; // Index signature for dynamic access
+}
+
 export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMedicaleProps) {
     const [loading, setLoading] = useState(false);
 
-    const defaultState = {
+    const defaultState: FormState = {
         dossier_number: '',
         last_name: '',
         first_name: '',
@@ -109,7 +143,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
         anesthesia_observation: ''
     };
 
-    const [formData, setFormData] = useState(initialData ? {
+    const [formData, setFormData] = useState<FormState>(initialData ? {
         ...defaultState,
         ...initialData,
         // Ensure boolean fields are actually booleans for checkboxes
@@ -125,7 +159,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
         const { name, value, type } = e.target;
         const checked = (e.target as HTMLInputElement).checked;
 
-        setFormData(prev => {
+        setFormData((prev: FormState) => {
             const next = {
                 ...prev,
                 [name]: type === 'checkbox' ? checked : value
@@ -184,7 +218,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
 
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const dob = e.target.value;
-        setFormData(prev => ({
+        setFormData((prev: FormState) => ({
             ...prev,
             dob,
             age: calculateAge(dob)
@@ -443,7 +477,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                                     { k: 'history_hypertension', l: 'Hypertension' },
                                     { k: 'history_asthma', l: 'Asthme' },
                                     { k: 'history_cardiopathy', l: 'Cardiopathie' }
-                                ] as { k: keyof typeof formData; l: string }[]).map((item) => (
+                                ] as { k: string; l: string }[]).map((item) => (
                                     <label key={item.k} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-100">
                                         <span className="font-medium text-slate-600">{item.l}</span>
                                         <input

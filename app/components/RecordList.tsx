@@ -10,7 +10,10 @@ interface RecordListProps {
 
 export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const records = useLiveQuery<MedicalRecord[]>(
-        () => db.medical_records.orderBy('created_at').reverse().toArray()
+        () => db.medical_records
+            .filter(r => r.deleted !== 1) // Only show non-deleted records
+            .reverse()
+            .sortBy('created_at')
     );
 
     // Default to empty array if undefined
@@ -20,7 +23,12 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const deleteRecord = async (id: number, name: string) => {
         if (window.confirm(`Voulez-vous vraiment supprimer le dossier de ${name} ?`)) {
             try {
-                await db.medical_records.delete(id);
+                // Soft delete: mark as deleted and pending sync
+                await db.medical_records.update(id, {
+                    deleted: 1,
+                    sync_status: 'pending_delete',
+                    updated_at: new Date().toISOString()
+                });
             } catch (error) {
                 console.error("Failed to delete record:", error);
                 alert("Erreur lors de la suppression.");

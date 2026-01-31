@@ -37,6 +37,12 @@ export interface MedicalRecord {
     photo_url: string;
 
     created_at: string;
+
+    // Sync Metadata
+    public_id?: string; // UUID for sync
+    updated_at?: string;
+    deleted?: number; // 0 or 1 (Soft delete)
+    sync_status?: 'synced' | 'pending_update' | 'pending_delete';
 }
 
 export class TolotananaDB extends Dexie {
@@ -44,8 +50,24 @@ export class TolotananaDB extends Dexie {
 
     constructor() {
         super('tolotananaDB');
-        this.version(1).stores({
-            medical_records: '++id, dossier_number, last_name, created_at'
+        this.version(2).stores({
+            medical_records: '++id, public_id, dossier_number, last_name, created_at, sync_status, deleted'
+        }).upgrade(tx => {
+            // Migration to version 2: Add default values for existing records
+            return tx.table('medical_records').toCollection().modify(record => {
+                if (!record.public_id) {
+                    record.public_id = crypto.randomUUID();
+                }
+                if (!record.sync_status) {
+                    record.sync_status = 'pending_update';
+                }
+                if (record.deleted === undefined) {
+                    record.deleted = 0;
+                }
+                if (!record.updated_at) {
+                    record.updated_at = new Date().toISOString();
+                }
+            });
         });
     }
 }
