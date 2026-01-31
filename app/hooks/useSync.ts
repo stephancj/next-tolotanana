@@ -18,6 +18,34 @@ export function useSync() {
             .count()
     ) || 0;
 
+    // Ensure all records have public_id before syncing
+    const ensurePublicIds = async () => {
+        const recordsWithoutId = await db.medical_records
+            .filter(r => !r.public_id)
+            .toArray();
+
+        if (recordsWithoutId.length > 0) {
+            console.log(`[SYNC] Found ${recordsWithoutId.length} records without public_id, generating...`);
+
+            await db.transaction('rw', db.medical_records, async () => {
+                for (const record of recordsWithoutId) {
+                    if (record.id) {
+                        const public_id = crypto.randomUUID();
+                        await db.medical_records.update(record.id, {
+                            public_id,
+                            sync_status: 'pending_update',
+                            updated_at: new Date().toISOString()
+                        });
+                        console.log(`[SYNC] Generated public_id for record ${record.id}: ${public_id}`);
+                    }
+                }
+            });
+
+            console.log(`[SYNC] ✓ Generated ${recordsWithoutId.length} public_ids`);
+        }
+    };
+
+
     const pushChanges = async () => {
         console.log('[SYNC] Starting pushChanges...');
 
@@ -112,6 +140,9 @@ export function useSync() {
         setStatus('syncing');
 
         try {
+            // STEP 0: Ensure all records have public_id
+            await ensurePublicIds();
+
             // STEP 1: PUSH (Send changes only)
             await pushChanges();
 
