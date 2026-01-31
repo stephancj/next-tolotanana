@@ -48,10 +48,23 @@ export function useSync() {
                 const updatedCount = await db.transaction('rw', db.medical_records, async () => {
                     let count = 0;
                     for (const public_id of result.processed) {
-                        const record = await db.medical_records.where('public_id').equals(public_id).first();
-                        if (record && record.id) {
-                            await db.medical_records.update(record.id, { sync_status: 'synced' });
-                            count++;
+                        // We must match the 'sent' record to know what version we synced
+                        const sentRecord = pendingChanges.find(r => r.public_id === public_id);
+
+                        // Get current state from DB
+                        const currentRecord = await db.medical_records.where('public_id').equals(public_id).first();
+
+                        if (currentRecord && currentRecord.id && sentRecord) {
+                            // CONCURRENCY CHECK:
+                            // If the record in DB has the same 'updated_at' timestamp as the one we just sent,
+                            // it means it hasn't been modified since we started the push properly.
+                            // If timestamps differ, user edited it while we were pushing -> DO NOT mark as synced.
+                            if (currentRecord.updated_at === sentRecord.updated_at) {
+                                await db.medical_records.update(currentRecord.id, { sync_status: 'synced' });
+                                count++;
+                            } else {
+                                console.log(`Skipping sync mark for ${public_id}: Record modified during push.`);
+                            }
                         }
                     }
                     return count;
