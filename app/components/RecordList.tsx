@@ -13,6 +13,8 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
     const [remoteRecords, setRemoteRecords] = useState<MedicalRecord[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
 
     // Local Records
     const localRecords = useLiveQuery<MedicalRecord[]>(
@@ -39,7 +41,20 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
         }
     }, [activeTab]);
 
-    const displayRecords = activeTab === 'local' ? (localRecords || []) : remoteRecords;
+    // Filter records based on search query
+    const filterRecords = (records: MedicalRecord[]) => {
+        if (!searchQuery) return records;
+
+        const query = searchQuery.toLowerCase();
+        return records.filter(r =>
+            r.last_name?.toLowerCase().includes(query) ||
+            r.first_name?.toLowerCase().includes(query) ||
+            r.dossier_number?.toLowerCase().includes(query) ||
+            r.address?.toLowerCase().includes(query)
+        );
+    };
+
+    const displayRecords = filterRecords(activeTab === 'local' ? (localRecords || []) : remoteRecords);
     const loading = activeTab === 'local' ? !localRecords : remoteLoading;
 
     const deleteRecord = async (id: number, name: string) => {
@@ -166,6 +181,32 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
                 </button>
             </div>
 
+            {/* Search Bar */}
+            <div className="mb-6">
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="🔍 Rechercher par nom, prénom, dossier, adresse..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full px-4 py-3 pl-12 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold"
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+                {searchQuery && (
+                    <div className="mt-2 text-sm text-gray-500">
+                        {displayRecords.length} résultat{displayRecords.length > 1 ? 's' : ''} trouvé{displayRecords.length > 1 ? 's' : ''}
+                    </div>
+                )}
+            </div>
+
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
                 {activeTab === 'local' ? "Liste des Patients (Hors ligne)" : "Liste des Patients (Sauvegardés)"}
             </h2>
@@ -196,24 +237,44 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
                                 <div className="text-xs text-gray-400 mb-1">
                                     {new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                                 </div>
-                                {activeTab === 'local' && (
-                                    <div className="flex gap-2">
-                                        {onEdit && (
+
+                                <div className="flex gap-2">
+                                    {activeTab === 'local' ? (
+                                        <>
+                                            {onEdit && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                                                    className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
+                                                >
+                                                    Voir / Modifier
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); onEdit(r); }}
-                                                className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
+                                                onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
+                                                className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition"
                                             >
-                                                Voir / Modifier
+                                                Supprimer
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
-                                            className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition"
-                                        >
-                                            Supprimer
-                                        </button>
-                                    </div>
-                                )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
+                                                className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition"
+                                            >
+                                                📋 Détails
+                                            </button>
+                                            {onEdit && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                                                    className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
+                                                >
+                                                    ✏️ Modifier
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -226,6 +287,113 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
                     )}
                 </div>
             )}
+
+            {/* Modal de détails */}
+            {selectedRecord && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRecord(null)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-2xl font-bold">{selectedRecord.last_name} {selectedRecord.first_name}</h2>
+                                    <p className="text-indigo-100 mt-1">Dossier: {selectedRecord.dossier_number || 'N/A'}</p>
+                                </div>
+                                <button
+                                    onClick={() => setSelectedRecord(null)}
+                                    className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition"
+                                >
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            {/* Informations personnelles */}
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="text-indigo-600">👤</span> Informations Personnelles
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
+                                    <DetailItem label="Date de naissance" value={selectedRecord.dob} />
+                                    <DetailItem label="Âge" value={`${selectedRecord.age || '?'} ans`} />
+                                    <DetailItem label="Genre" value={selectedRecord.gender === 'M' ? 'Masculin' : selectedRecord.gender === 'F' ? 'Féminin' : selectedRecord.gender} />
+                                    <DetailItem label="Téléphone" value={[selectedRecord.phone1, selectedRecord.phone2].filter(Boolean).join(' / ') || 'N/A'} />
+                                    <DetailItem label="Adresse" value={selectedRecord.address} className="col-span-2" />
+                                    <DetailItem label="Distance" value={selectedRecord.distance || 'non précisé'} />
+                                </div>
+                            </div>
+
+                            {/* Paramètres médicaux */}
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="text-red-600">❤️</span> Paramètres Médicaux
+                                </h3>
+                                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
+                                    <DetailItem label="Poids" value={`${selectedRecord.weight || '?'} kg`} />
+                                    <DetailItem label="Taille" value={`${selectedRecord.height || '?'} cm`} />
+                                    <DetailItem label="IMC" value={selectedRecord.bmi?.toString() || '?'} />
+                                    <DetailItem label="Tension" value={selectedRecord.blood_pressure || 'N/A'} />
+                                    <DetailItem label="Température" value={`${selectedRecord.temperature || '?'} °C`} />
+                                    <DetailItem label="Pouls" value={`${selectedRecord.heart_rate || '?'} bpm`} />
+                                    <DetailItem label="Resp." value={`${selectedRecord.respiratory_rate || '?'} cpm`} />
+                                    <DetailItem label="SpO2" value={`${selectedRecord.spo2 || '?'} %`} />
+                                </div>
+                            </div>
+
+                            {/* Consultation chirurgicale */}
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="text-rose-600">🏥</span> Consultation Chirurgicale
+                                </h3>
+                                <div className="bg-gray-50 p-4 rounded-xl space-y-3">
+                                    <DetailItem label="Diagnostic clinique" value={selectedRecord.clinical_diagnosis || 'N/A'} />
+                                    <DetailItem label="Type d'intervention" value={selectedRecord.intervention_type || 'N/A'} />
+                                    <DetailItem label="Observation" value={selectedRecord.observation || 'N/A'} />
+                                    <DetailItem label="À programmer" value={selectedRecord.program_mission ? 'Oui' : 'Non'} />
+                                </div>
+                            </div>
+
+                            {/* Antécédents */}
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                    <span className="text-amber-600">📋</span> Antécédents
+                                </h3>
+                                <div className="bg-gray-50 p-4 rounded-xl">
+                                    <div className="flex flex-wrap gap-2 mb-3">
+                                        {selectedRecord.history_diabetes === 1 && <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">Diabète</span>}
+                                        {selectedRecord.history_hypertension === 1 && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">Hypertension</span>}
+                                        {selectedRecord.history_asthma === 1 && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">Asthme</span>}
+                                        {selectedRecord.history_cardiopathy === 1 && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">Cardiopathie</span>}
+                                        {selectedRecord.history_none === 1 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">Aucun connu</span>}
+                                    </div>
+                                    {selectedRecord.history_others && (
+                                        <DetailItem label="Autres antécédents" value={selectedRecord.history_others} />
+                                    )}
+                                    <div className="grid grid-cols-2 gap-4 mt-3">
+                                        <DetailItem label="Score ASA" value={selectedRecord.asa_score?.toString() || 'N/A'} />
+                                        <DetailItem label="Type d'anesthésie" value={selectedRecord.anesthesia_type || 'N/A'} />
+                                    </div>
+                                    {selectedRecord.anesthesia_observation && (
+                                        <DetailItem label="Observation anesthésie" value={selectedRecord.anesthesia_observation} className="mt-3" />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Composant helper pour afficher les détails
+function DetailItem({ label, value, className = '' }: { label: string; value?: string | number; className?: string }) {
+    return (
+        <div className={className}>
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</div>
+            <div className="text-gray-800 font-medium">{value || 'N/A'}</div>
         </div>
     );
 }

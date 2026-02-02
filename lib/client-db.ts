@@ -11,6 +11,7 @@ export interface MedicalRecord {
     phone1: string;
     phone2: string;
     address: string;
+    distance: string;
     weight: number;
     height: number;
     bmi: number;
