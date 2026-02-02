@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
 import { medicalRecords } from '@/lib/schema';
-import { eq, inArray, gt, desc } from 'drizzle-orm';
+import { eq, gt, desc } from 'drizzle-orm';
 
 // PUSH: Client sends changes to server
 export async function POST(req: Request) {
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
         }
 
         const processedIds: string[] = [];
-        const errors: any[] = [];
+        const errors: Array<{ id: string; error: string }> = [];
 
         // Process sequentially to avoid race conditions
         for (const record of changes) {
@@ -25,13 +25,13 @@ export async function POST(req: Request) {
                 }
 
                 // Helper to safely convert to integer boolean (0/1) for Postgres Integer columns
-                const toInt = (val: any) => (val === true || val === 1 || val === '1' || val === 'true') ? 1 : 0;
+                const toInt = (val: unknown) => (val === true || val === 1 || val === '1' || val === 'true') ? 1 : 0;
 
                 // Helper to safely convert to boolean for Postgres Boolean columns
-                const toBool = (val: any) => (val === true || val === 1 || val === '1' || val === 'true');
+                const toBool = (val: unknown) => (val === true || val === 1 || val === '1' || val === 'true');
 
                 // sanitized object
-                const cleanRecord: any = {
+                const cleanRecord = {
                     public_id: record.public_id,
                     dossier_number: record.dossier_number,
                     last_name: record.last_name,
@@ -42,6 +42,7 @@ export async function POST(req: Request) {
                     phone1: record.phone1,
                     phone2: record.phone2,
                     address: record.address,
+                    distance: record.distance || 'non précisé',
                     photo_url: record.photo_url,
                     weight: record.weight,
                     height: record.height,

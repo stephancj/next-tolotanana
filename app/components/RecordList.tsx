@@ -2,12 +2,39 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MedicalRecord } from '@/lib/client-db';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { getAgeValue } from '@/lib/age-utils';
 
 interface RecordListProps {
     onBack: () => void;
     onEdit?: (record: MedicalRecord) => void;
 }
+
+// Helper component to display age with color-coded badges
+const AgeDisplay = ({ age }: { age: string | number }) => {
+    const ageStr = String(age || '?');
+
+    // Determine color based on unit
+    let bgColor = 'bg-gray-100';
+    let textColor = 'text-gray-700';
+
+    if (ageStr.includes('semaine')) {
+        bgColor = 'bg-pink-100';
+        textColor = 'text-pink-700';
+    } else if (ageStr.includes('mois')) {
+        bgColor = 'bg-purple-100';
+        textColor = 'text-purple-700';
+    } else if (ageStr.includes('an')) {
+        bgColor = 'bg-indigo-100';
+        textColor = 'text-indigo-700';
+    }
+
+    return (
+        <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold ${bgColor} ${textColor}`}>
+            {ageStr}
+        </span>
+    );
+};
 
 export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
@@ -15,6 +42,8 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
     const [remoteLoading, setRemoteLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
+    const [sortField, setSortField] = useState<keyof MedicalRecord>('created_at');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     // Local Records
     const localRecords = useLiveQuery<MedicalRecord[]>(
@@ -24,22 +53,26 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
             .sortBy('created_at')
     );
 
-    // Fetch Remote Records
+    // Fetch Remote Records function
+    const fetchRemoteRecords = useCallback(async () => {
+        setRemoteLoading(true);
+        try {
+            const res = await fetch('/api/records');
+            const data = await res.json();
+            setRemoteRecords(data);
+        } catch (err) {
+            console.error("Failed to fetch remote records", err);
+        } finally {
+            setRemoteLoading(false);
+        }
+    }, []);
+
+    // Trigger fetch when switching to remote tab
     useEffect(() => {
         if (activeTab === 'remote') {
-            setRemoteLoading(true);
-            fetch('/api/records')
-                .then(res => res.json())
-                .then(data => {
-                    setRemoteRecords(data);
-                    setRemoteLoading(false);
-                })
-                .catch(err => {
-                    console.error("Failed to fetch remote records", err);
-                    setRemoteLoading(false);
-                });
+            fetchRemoteRecords();
         }
-    }, [activeTab]);
+    }, [activeTab, fetchRemoteRecords]);
 
     // Filter records based on search query
     const filterRecords = (records: MedicalRecord[]) => {
@@ -50,11 +83,49 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
             r.last_name?.toLowerCase().includes(query) ||
             r.first_name?.toLowerCase().includes(query) ||
             r.dossier_number?.toLowerCase().includes(query) ||
-            r.address?.toLowerCase().includes(query)
+            r.address?.toLowerCase().includes(query) ||
+            r.distance?.toLowerCase().includes(query)
         );
     };
 
-    const displayRecords = filterRecords(activeTab === 'local' ? (localRecords || []) : remoteRecords);
+    // Sort records
+    const sortRecords = (records: MedicalRecord[]) => {
+        return [...records].sort((a, b) => {
+            const aVal = a[sortField];
+            const bVal = b[sortField];
+
+            if (aVal === undefined || aVal === null) return 1;
+            if (bVal === undefined || bVal === null) return -1;
+
+            let comparison = 0;
+
+            // Special handling for age field
+            if (sortField === 'age') {
+                const aAge = getAgeValue(String(aVal));
+                const bAge = getAgeValue(String(bVal));
+                comparison = aAge - bAge;
+            } else if (typeof aVal === 'string' && typeof bVal === 'string') {
+                comparison = aVal.localeCompare(bVal);
+            } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+                comparison = aVal - bVal;
+            } else {
+                comparison = String(aVal).localeCompare(String(bVal));
+            }
+
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
+    };
+
+    const handleSort = (field: keyof MedicalRecord) => {
+        if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
+    const displayRecords = sortRecords(filterRecords(activeTab === 'local' ? (localRecords || []) : remoteRecords));
     const loading = activeTab === 'local' ? !localRecords : remoteLoading;
 
     const deleteRecord = async (id: number, name: string) => {
@@ -76,7 +147,7 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
         // ... (Keep existing CSV logic but apply to displayRecords)
         const headers = [
             "N° Dossier", "Nom", "Prénom", "Date Naissance", "Âge", "Genre",
-            "Téléphone", "Adresse", "Poids", "Taille", "IMC", "Tension",
+            "Téléphone", "Adresse", "Distance", "Poids", "Taille", "IMC", "Tension",
             "Température", "Fréquence Cardiaque", "Respiratoire", "Saturation O2",
             "Diagnostic Clinique", "Type Intervention", "Observation Chir", "À Programmer",
             "Antécédents", "Autres Antécédents", "Score ASA", "Type Anesthésie",
@@ -108,6 +179,7 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
                     `"${gender || ''}"`,
                     `"${phone}"`,
                     `"${r.address || ''}"`,
+                    `"${r.distance || 'non précisé'}"`,
                     r.weight,
                     r.height,
                     r.bmi,
@@ -213,78 +285,132 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
 
             {loading ? (
                 <div className="flex justify-center p-12 text-gray-400">Chargement...</div>
+            ) : displayRecords.length === 0 ? (
+                <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
+                    {activeTab === 'local'
+                        ? "Aucun dossier local. Commencez par en créer un."
+                        : "Aucun dossier sur le serveur."}
+                </div>
             ) : (
-                <div className="grid gap-4">
-                    {displayRecords.map((r, idx) => (
-                        <div key={r.id || idx} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between sm:items-center hover:shadow-md transition cursor-pointer">
-                            <div className="mb-2 sm:mb-0">
-                                <div className="font-bold text-xl text-gray-800">{r.last_name || 'Inconnu'} {r.first_name}</div>
-                                <div className="text-sm text-gray-500 flex gap-3 mt-1">
-                                    <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-xs font-semibold">Dossier: {r.dossier_number || 'N/A'}</span>
-                                    <span>Âge: {r.age || '?'} ans</span>
-                                    {activeTab === 'local' && r.sync_status === 'synced' && (
-                                        <span className="text-green-600 flex items-center gap-1">✅ Synchronisé</span>
-                                    )}
-                                    {activeTab === 'local' && r.sync_status !== 'synced' && (
-                                        <span className="text-orange-500 flex items-center gap-1">⏳ En attente</span>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                                <div className={`px-3 py-1 rounded-full text-xs font-bold ${r.program_mission ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                    {r.program_mission ? 'Mission: OUI' : 'Mission: NON'}
-                                </div>
-                                <div className="text-xs text-gray-400 mb-1">
-                                    {new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                </div>
-
-                                <div className="flex gap-2">
-                                    {activeTab === 'local' ? (
-                                        <>
-                                            {onEdit && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onEdit(r); }}
-                                                    className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
-                                                >
-                                                    Voir / Modifier
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
-                                                className="px-3 py-1 bg-red-50 text-red-600 rounded-lg text-sm font-bold hover:bg-red-100 transition"
-                                            >
-                                                Supprimer
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
-                                                className="px-3 py-1 bg-blue-50 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-100 transition"
-                                            >
-                                                📋 Détails
-                                            </button>
-                                            {onEdit && (
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); onEdit(r); }}
-                                                    className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition"
-                                                >
-                                                    ✏️ Modifier
-                                                </button>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {displayRecords.length === 0 && (
-                        <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
-                            {activeTab === 'local'
-                                ? "Aucun dossier local. Commencez par en créer un."
-                                : "Aucun dossier sur le serveur."}
-                        </div>
-                    )}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                                <tr>
+                                    <SortableHeader field="dossier_number" label="N° Dossier" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="last_name" label="Nom" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="first_name" label="Prénom" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="age" label="Âge" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="gender" label="Genre" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="address" label="Adresse" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="distance" label="Distance" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="clinical_diagnosis" label="Diagnostic" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <SortableHeader field="program_mission" label="Mission" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    {activeTab === 'local' && <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Statut</th>}
+                                    <SortableHeader field="created_at" label="Date" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-indigo-50 to-purple-50">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {displayRecords.map((r, idx) => (
+                                    <tr key={r.id || idx} className="hover:bg-indigo-50/30 transition-colors">
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
+                                                {r.dossier_number || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 font-bold text-gray-800">{r.last_name || 'Inconnu'}</td>
+                                        <td className="px-4 py-3 text-gray-700">{r.first_name || '-'}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            <AgeDisplay age={r.age} />
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`inline-block w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-700' :
+                                                r.gender === 'F' ? 'bg-pink-100 text-pink-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {r.gender === 'M' ? '♂' : r.gender === 'F' ? '♀' : '?'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.address}>
+                                            {r.address || '-'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${r.distance === 'en ville' ? 'bg-green-100 text-green-700' :
+                                                r.distance === 'un peu loin' ? 'bg-yellow-100 text-yellow-700' :
+                                                    r.distance === 'loin' ? 'bg-orange-100 text-orange-700' :
+                                                        'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {r.distance || 'non précisé'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.clinical_diagnosis}>
+                                            {r.clinical_diagnosis || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${r.program_mission ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {r.program_mission ? 'OUI' : 'NON'}
+                                            </span>
+                                        </td>
+                                        {activeTab === 'local' && (
+                                            <td className="px-4 py-3 text-center">
+                                                {r.sync_status === 'synced' ? (
+                                                    <span className="text-green-600 flex items-center justify-center gap-1 text-xs">
+                                                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                                                        Sync
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-orange-500 flex items-center justify-center gap-1 text-xs">
+                                                        <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                                                        En attente
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                                            {new Date(r.created_at).toLocaleDateString('fr-FR', {
+                                                day: '2-digit',
+                                                month: '2-digit',
+                                                year: 'numeric'
+                                            })}
+                                        </td>
+                                        <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-white">
+                                            <div className="flex gap-1 justify-end">
+                                                {activeTab === 'remote' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
+                                                        className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
+                                                        title="Voir les détails"
+                                                    >
+                                                        �️
+                                                    </button>
+                                                )}
+                                                {onEdit && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                                                        className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition"
+                                                        title="Modifier"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                )}
+                                                {activeTab === 'local' && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
+                                                        className="p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition"
+                                                        title="Supprimer"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 
@@ -317,7 +443,10 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
                                     <DetailItem label="Date de naissance" value={selectedRecord.dob} />
-                                    <DetailItem label="Âge" value={`${selectedRecord.age || '?'} ans`} />
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-gray-500 mb-1">Âge</span>
+                                        <AgeDisplay age={selectedRecord.age} />
+                                    </div>
                                     <DetailItem label="Genre" value={selectedRecord.gender === 'M' ? 'Masculin' : selectedRecord.gender === 'F' ? 'Féminin' : selectedRecord.gender} />
                                     <DetailItem label="Téléphone" value={[selectedRecord.phone1, selectedRecord.phone2].filter(Boolean).join(' / ') || 'N/A'} />
                                     <DetailItem label="Adresse" value={selectedRecord.address} className="col-span-2" />
@@ -388,6 +517,41 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
     );
 }
 
+// Composant pour les en-têtes triables
+function SortableHeader({
+    field,
+    label,
+    onSort,
+    currentField,
+    direction
+}: {
+    field: keyof MedicalRecord;
+    label: string;
+    onSort: (field: keyof MedicalRecord) => void;
+    currentField: keyof MedicalRecord;
+    direction: 'asc' | 'desc';
+}) {
+    const isActive = currentField === field;
+
+    return (
+        <th
+            className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-indigo-100 transition-colors select-none"
+            onClick={() => onSort(field)}
+        >
+            <div className="flex items-center gap-1">
+                <span>{label}</span>
+                <span className="text-gray-400">
+                    {isActive ? (
+                        direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        '↕'
+                    )}
+                </span>
+            </div>
+        </th>
+    );
+}
+
 // Composant helper pour afficher les détails
 function DetailItem({ label, value, className = '' }: { label: string; value?: string | number; className?: string }) {
     return (
@@ -397,3 +561,4 @@ function DetailItem({ label, value, className = '' }: { label: string; value?: s
         </div>
     );
 }
+

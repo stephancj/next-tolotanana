@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { calculateAge } from '@/lib/age-utils';
+import { MedicalRecord } from '@/lib/client-db';
 
 // Icons
 const Icons = {
@@ -68,7 +70,7 @@ const VitalCard = ({ label, name, value, unit, icon, onChange, color = "indigo" 
 
 
 interface FicheMedicaleProps {
-    initialData?: any;
+    initialData?: Partial<MedicalRecord>;
     onSuccess?: () => void;
     onNew?: () => void;
 }
@@ -104,6 +106,7 @@ interface FormState {
     asa_score: string | number;
     anesthesia_type: string;
     anesthesia_observation: string;
+    distance: string;
     [key: string]: string | number | boolean; // Index signature for dynamic access
 }
 
@@ -140,7 +143,8 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
         history_others: '',
         asa_score: '',
         anesthesia_type: '',
-        anesthesia_observation: ''
+        anesthesia_observation: '',
+        distance: 'non précisé'
     };
 
     const [formData, setFormData] = useState<FormState>(initialData ? {
@@ -204,18 +208,6 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
         });
     };
 
-    const calculateAge = (dob: string) => {
-        if (!dob) return '';
-        const birthDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        return age.toString();
-    };
-
     const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const dob = e.target.value;
         setFormData((prev: FormState) => ({
@@ -241,7 +233,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                 history_none: payload.history_none ? 1 : 0,
 
                 // Ensure numeric fields are parsed correctly if they are strings in state
-                age: parseInt(String(payload.age)) || 0,
+                age: String(payload.age) || '',
                 weight: parseFloat(String(payload.weight).replace(',', '.')) || 0,
                 height: parseFloat(String(payload.height).replace(',', '.')) || 0,
                 bmi: parseFloat(String(payload.bmi).replace(',', '.')) || 0,
@@ -251,6 +243,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                 respiratory_rate: parseInt(String(payload.respiratory_rate)) || 0,
                 spo2: parseInt(String(payload.spo2)) || 0,
                 asa_score: parseInt(String(payload.asa_score)) || 0,
+                distance: String(payload.distance || 'non précisé'),
                 photo_url: '',
                 created_at: initialData?.created_at || new Date().toISOString()
             };
@@ -340,7 +333,7 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
 
                         <div className="grid grid-cols-2 gap-4">
                             <InputField label="Date de Naissance" name="dob" type="date" value={formData.dob} onChange={handleDateChange} />
-                            <InputField label="Âge (Taona)" name="age" type="number" value={formData.age} onChange={handleChange} />
+                            <InputField label="Âge (Taona)" name="age" type="text" value={formData.age} onChange={handleChange} />
                         </div>
 
                         <div>
@@ -376,6 +369,30 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                             <InputField label="Tél 2" name="phone2" value={formData.phone2} onChange={handleChange} />
                         </div>
                         <InputField label="Adresse" name="address" value={formData.address} onChange={handleChange} />
+
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block pl-1">Distance</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { value: 'en ville', label: 'En ville' },
+                                    { value: 'un peu loin', label: 'Un peu loin' },
+                                    { value: 'loin', label: 'Loin' },
+                                    { value: 'non précisé', label: 'Non précisé' }
+                                ].map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, distance: option.value }))}
+                                        className={`py-3 px-4 rounded-xl border-2 font-bold transition-all text-sm ${formData.distance === option.value
+                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm'
+                                            : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'
+                                            }`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </aside>
 

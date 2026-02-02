@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import FicheMedicale from './components/FicheMedicale';
 import RecordList from './components/RecordList';
 import { useSync } from './hooks/useSync';
+import { MedicalRecord } from '@/lib/client-db';
 
 export default function Home() {
   const [view, setView] = useState<'form' | 'list'>('form');
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | undefined>(undefined);
 
   // Activate Sync
   const { status, pendingCount, manualSync } = useSync();
@@ -48,18 +49,18 @@ export default function Home() {
           key={selectedRecord ? selectedRecord.id : 'new'}
           initialData={selectedRecord}
           onSuccess={() => {
-            setSelectedRecord(null);
+            setSelectedRecord(undefined);
             // Optional: switch to list or stay on form
           }}
-          onNew={() => setSelectedRecord(null)} // Reset form
+          onNew={() => setSelectedRecord(undefined)} // Reset form
         />
       ) : (
         <RecordList
           onBack={() => {
-            setSelectedRecord(null);
+            setSelectedRecord(undefined);
             setView('form');
           }}
-          onEdit={(record: any) => {
+          onEdit={(record: MedicalRecord) => {
             setSelectedRecord(record);
             setView('form');
           }}

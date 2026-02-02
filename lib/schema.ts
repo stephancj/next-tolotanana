@@ -8,11 +8,12 @@ export const medicalRecords = pgTable('medical_records', {
     last_name: text('last_name'),
     first_name: text('first_name'),
     dob: text('dob'),
-    age: integer('age'),
+    age: text('age'),
     gender: text('gender'),
     phone1: text('phone1'),
     phone2: text('phone2'),
     address: text('address'),
+    distance: text('distance').default('non précisé'),
     photo_url: text('photo_url'),
 
     // Medical Parameters

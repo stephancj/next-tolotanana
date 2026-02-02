@@ -6,7 +6,7 @@ export interface MedicalRecord {
     last_name: string;
     first_name: string;
     dob: string;
-    age: number;
+    age: string;
     gender: string;
     phone1: string;
     phone2: string;
