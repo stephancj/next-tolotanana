@@ -11,14 +11,6 @@ interface EditionSelectorProps {
 }
 
 export default function EditionSelector({ onSelect, onClose }: EditionSelectorProps) {
-    const [showCreateForm, setShowCreateForm] = useState(false);
-    const [newEdition, setNewEdition] = useState({
-        name: '',
-        place: '',
-        year: new Date().getFullYear(),
-        description: ''
-    });
-
     const [isLoadingFromRemote, setIsLoadingFromRemote] = useState(false);
 
     // Charger toutes les éditions actives
@@ -42,13 +34,13 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                         if (Array.isArray(remoteEditions) && remoteEditions.length > 0) {
                             console.log(`📥 ${remoteEditions.length} éditions récupérées du serveur`);
                             // Insert into local DB
-                            await db.editions.bulkPut(remoteEditions.map((e: any) => ({
+                            await db.editions.bulkPut(remoteEditions.map((e: Partial<Edition>) => ({
                                 ...e,
                                 // Ensure types match Dexie schema
                                 is_active: e.is_active ? 1 : 0,
                                 deleted: e.deleted ? 1 : 0,
                                 sync_status: 'synced'
-                            })));
+                            } as Edition)));
                         }
                     }
                 } catch (err) {
@@ -59,44 +51,12 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
             };
             fetchRemote();
         }
-    }, [editions]);
+    }, [editions, isLoadingFromRemote]);
 
     const handleSelectEdition = (edition: Edition) => {
         saveSelectedEdition(edition);
         onSelect(edition);
         if (onClose) onClose();
-    };
-
-    const handleCreateEdition = async () => {
-        if (!newEdition.name || !newEdition.place) {
-            alert('Veuillez remplir le nom et le lieu');
-            return;
-        }
-
-        try {
-            const edition: Edition = {
-                public_id: crypto.randomUUID(),
-                name: newEdition.name,
-                place: newEdition.place,
-                year: newEdition.year,
-                description: newEdition.description,
-                is_active: 1,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                deleted: 0,
-                sync_status: 'pending_update'
-            };
-
-            const id = await db.editions.add(edition);
-            const createdEdition = await db.editions.get(id);
-
-            if (createdEdition) {
-                handleSelectEdition(createdEdition);
-            }
-        } catch (error) {
-            console.error('Erreur lors de la création de l\'édition:', error);
-            alert('Erreur lors de la création de l\'édition');
-        }
     };
 
     if (!editions) {
@@ -128,139 +88,53 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-                    {!showCreateForm ? (
-                        <>
-                            {/* Liste des éditions */}
-                            <div className="space-y-3 mb-6">
-                                {editions.length === 0 ? (
-                                    <div className="text-center py-8 text-gray-500">
-                                        <p className="text-lg">Aucune édition disponible</p>
-                                        <p className="text-sm mt-2">Créez votre première édition pour commencer</p>
-                                    </div>
-                                ) : (
-                                    editions.map((edition) => (
-                                        <button
-                                            key={edition.id}
-                                            onClick={() => handleSelectEdition(edition)}
-                                            className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-indigo-500 hover:shadow-lg transition-all group"
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
-                                                        {edition.name}
-                                                    </h3>
-                                                    <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                                                        <span className="flex items-center gap-1">
-                                                            <span>📍</span>
-                                                            {edition.place}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <span>📅</span>
-                                                            {edition.year}
-                                                        </span>
-                                                    </div>
-                                                    {edition.description && (
-                                                        <p className="text-sm text-gray-500 mt-2">
-                                                            {edition.description}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="ml-4">
-                                                    <div className="w-10 h-10 rounded-full bg-indigo-100 group-hover:bg-indigo-600 flex items-center justify-center transition-colors">
-                                                        <span className="text-xl group-hover:scale-110 transition-transform">
-                                                            ➜
-                                                        </span>
-                                                    </div>
-                                                </div>
+                    {/* Liste des éditions */}
+                    <div className="space-y-3 mb-6">
+                        {editions.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <p className="text-lg">Aucune édition disponible</p>
+                                <p className="text-sm mt-2">Veuillez synchroniser pour récupérer les éditions</p>
+                            </div>
+                        ) : (
+                            editions.map((edition) => (
+                                <button
+                                    key={edition.id}
+                                    onClick={() => handleSelectEdition(edition)}
+                                    className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-indigo-500 hover:shadow-lg transition-all group"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
+                                                {edition.name}
+                                            </h3>
+                                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                                                <span className="flex items-center gap-1">
+                                                    <span>📍</span>
+                                                    {edition.place}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <span>📅</span>
+                                                    {edition.year}
+                                                </span>
                                             </div>
-                                        </button>
-                                    ))
-                                )}
-                            </div>
-
-                            {/* Bouton Créer */}
-                            <button
-                                onClick={() => setShowCreateForm(true)}
-                                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-4 px-6 rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <span className="text-2xl">➕</span>
-                                Créer une Nouvelle Édition
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            {/* Formulaire de création */}
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Nom de l'édition *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={newEdition.name}
-                                        onChange={(e) => setNewEdition({ ...newEdition, name: e.target.value })}
-                                        placeholder="Ex: Mission Morondava 2026"
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Lieu *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={newEdition.place}
-                                            onChange={(e) => setNewEdition({ ...newEdition, place: e.target.value })}
-                                            placeholder="Ex: Morondava"
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none"
-                                        />
+                                            {edition.description && (
+                                                <p className="text-sm text-gray-500 mt-2">
+                                                    {edition.description}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="ml-4">
+                                            <div className="w-10 h-10 rounded-full bg-indigo-100 group-hover:bg-indigo-600 flex items-center justify-center transition-colors">
+                                                <span className="text-xl group-hover:scale-110 transition-transform">
+                                                    ➜
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            Année
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={newEdition.year}
-                                            onChange={(e) => setNewEdition({ ...newEdition, year: parseInt(e.target.value) })}
-                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                        Description (optionnel)
-                                    </label>
-                                    <textarea
-                                        value={newEdition.description}
-                                        onChange={(e) => setNewEdition({ ...newEdition, description: e.target.value })}
-                                        placeholder="Description de la mission..."
-                                        rows={3}
-                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none resize-none"
-                                    />
-                                </div>
-
-                                <div className="flex gap-3 pt-4">
-                                    <button
-                                        onClick={() => setShowCreateForm(false)}
-                                        className="flex-1 bg-gray-200 text-gray-700 font-bold py-3 px-6 rounded-xl hover:bg-gray-300 transition-all"
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleCreateEdition}
-                                        className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 px-6 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
-                                    >
-                                        Créer
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    )}
+                                </button>
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

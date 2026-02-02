@@ -47,59 +47,45 @@ export function useSync() {
 
 
     const syncEditions = async () => {
-        // 1. Ensure public_ids for editions
-        const editionsNoId = await db.editions.filter(e => !e.public_id).toArray();
-        if (editionsNoId.length > 0) {
-            console.log(`[SYNC] Found ${editionsNoId.length} editions without public_id`);
-            await db.transaction('rw', db.editions, async () => {
-                for (const ed of editionsNoId) {
-                    if (ed.id) {
-                        const public_id = crypto.randomUUID();
-                        await db.editions.update(ed.id, {
-                            public_id,
-                            sync_status: 'pending_update',
-                            updated_at: new Date().toISOString()
-                        });
-                    }
-                }
-            });
-        }
+        try {
+            console.log('[SYNC] Pulling editions from Neon...');
+            const res = await fetch('/api/editions');
+            if (!res.ok) throw new Error('Failed to fetch editions');
 
-        // 2. Fetch/Push pending editions
-        const pendingEditions = await db.editions
-            .filter(e => e.sync_status !== 'synced')
-            .toArray();
+            const serverEditions = await res.json();
 
-        // 2.5 Only push active editions if needed (or all pending)
-        if (pendingEditions.length > 0) {
-            const validEditions = pendingEditions.filter(e => e.public_id);
-            if (validEditions.length > 0) {
-                try {
-                    console.log(`[SYNC] Pushing ${validEditions.length} editions...`);
-                    const res = await fetch('/api/editions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ editions: validEditions })
-                    });
+            if (Array.isArray(serverEditions) && serverEditions.length > 0) {
+                await db.transaction('rw', db.editions, async () => {
+                    for (const serverEd of serverEditions) {
+                        // Check if exists
+                        const existing = await db.editions.where('public_id').equals(serverEd.public_id).first();
 
-                    if (res.ok) {
-                        const result = await res.json();
-                        if (result.processed && result.processed.length > 0) {
-                            await db.transaction('rw', db.editions, async () => {
-                                for (const pid of result.processed) {
-                                    const ed = await db.editions.where('public_id').equals(pid).first();
-                                    if (ed && ed.id) {
-                                        await db.editions.update(ed.id, { sync_status: 'synced' });
-                                    }
-                                }
-                            });
-                            console.log(`[SYNC] ✓ Synced ${result.processed.length} editions`);
+                        const localEdition: any = {
+                            public_id: serverEd.public_id,
+                            name: serverEd.name,
+                            place: serverEd.place,
+                            year: serverEd.year,
+                            start_date: serverEd.start_date,
+                            end_date: serverEd.end_date,
+                            description: serverEd.description,
+                            is_active: serverEd.is_active ? 1 : 0,
+                            deleted: serverEd.deleted ? 1 : 0,
+                            created_at: serverEd.created_at,
+                            updated_at: serverEd.updated_at,
+                            sync_status: 'synced' // Marked as synced since it came from server
+                        };
+
+                        if (existing && existing.id) {
+                            await db.editions.update(existing.id, localEdition);
+                        } else {
+                            await db.editions.add(localEdition);
                         }
                     }
-                } catch (e) {
-                    console.error("Failed to sync editions", e);
-                }
+                });
+                console.log(`[SYNC] ✓ Pulled and updated ${serverEditions.length} editions`);
             }
+        } catch (e) {
+            console.error("Failed to pull editions", e);
         }
     };
 

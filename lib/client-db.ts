@@ -95,31 +95,9 @@ export class TolotananaDB extends Dexie {
         this.version(3).stores({
             editions: '++id, public_id, place, year, is_active, sync_status, deleted',
             medical_records: '++id, public_id, edition_id, dossier_number, last_name, created_at, sync_status, deleted'
-        }).upgrade(async tx => {
-            // Create default edition with a STATIC UUID to prevent duplicates across devices
-            const defaultEdition: Edition = {
-                public_id: 'f5cb4171-b3a2-4bb5-8d27-844f01b4a515', // Fixed UUID for Morondava 2026
-                name: 'Mission Morondava 2026',
-                place: 'Morondava',
-                year: 2026,
-                start_date: '2026-01-01',
-                end_date: '2026-12-31',
-                description: 'Mission médicale annuelle à Morondava',
-                is_active: 1,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                deleted: 0,
-                sync_status: 'pending_update'
-            };
-
-            const editionId = await tx.table('editions').add(defaultEdition);
-
-            // Assign all existing medical records to the default edition
-            return tx.table('medical_records').toCollection().modify(record => {
-                if (!record.edition_id) {
-                    record.edition_id = editionId as number;
-                }
-            });
+        }).upgrade(async () => {
+            // Version 3: Just creating the table, no default data.
+            // Editions will be synced from server.
         });
     }
 }
