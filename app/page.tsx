@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import FicheMedicale from './components/FicheMedicale';
 import RecordList from './components/RecordList';
 import EditionSelector from './components/EditionSelector';
+import Dashboard from './components/Dashboard';
 import { useSync } from './hooks/useSync';
 import { MedicalRecord, Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
 
 export default function Home() {
-  const [view, setView] = useState<'form' | 'list'>('form');
+  const [view, setView] = useState<'dashboard' | 'form' | 'list'>('dashboard');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | undefined>(undefined);
   const [currentEdition, setCurrentEdition] = useState<Edition | null>(null);
   const [showEditionSelector, setShowEditionSelector] = useState(false);
@@ -53,6 +54,8 @@ export default function Home() {
       const customEvent = e as CustomEvent;
       if (customEvent.detail === 'list') {
         setView('list');
+      } else if (customEvent.detail === 'dashboard') {
+        setView('dashboard');
       }
     };
 
@@ -91,7 +94,16 @@ export default function Home() {
         />
       )}
 
-      {view === 'form' ? (
+      {view === 'dashboard' ? (
+        <Dashboard
+          currentEdition={currentEdition}
+          onNavigate={setView}
+          onEdit={(record) => {
+            setSelectedRecord(record);
+            setView('form');
+          }}
+        />
+      ) : view === 'form' ? (
         <FicheMedicale
           key={selectedRecord ? selectedRecord.id : 'new'}
           initialData={selectedRecord}
@@ -100,6 +112,7 @@ export default function Home() {
           onChangeEdition={handleChangeEdition}
           onSuccess={() => {
             setSelectedRecord(undefined);
+            setView('list'); // After save, go to list or dashboard? Let's go to list for confirmation usually
           }}
           onNew={() => setSelectedRecord(undefined)}
         />
@@ -110,7 +123,7 @@ export default function Home() {
           onChangeEdition={handleChangeEdition}
           onBack={() => {
             setSelectedRecord(undefined);
-            setView('form');
+            setView('dashboard');
           }}
           onEdit={(record: MedicalRecord) => {
             setSelectedRecord(record);

@@ -643,6 +643,11 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
             {/* FLOATING ACTION BAR */}
             <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full px-6 flex justify-center z-50 pointer-events-none">
                 <div className="bg-slate-900/90 backdrop-blur-md text-white px-2 py-2 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-2 pointer-events-auto scale-90 md:scale-100 transform transition-transform">
+                    <button onClick={() => document.dispatchEvent(new CustomEvent('switchTab', { detail: 'dashboard' }))} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
+                        <span className="text-xl">🏠</span>
+                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Accueil</span>
+                    </button>
+                    <div className="w-px h-8 bg-white/10"></div>
                     <button onClick={handleNew} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
                         <span className="text-xl">✨</span>
                         <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
