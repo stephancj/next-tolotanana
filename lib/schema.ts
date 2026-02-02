@@ -1,8 +1,24 @@
 import { pgTable, text, integer, real, boolean, timestamp, serial, uuid } from 'drizzle-orm/pg-core';
 
+export const editions = pgTable('editions', {
+    id: serial('id').primaryKey(),
+    public_id: uuid('public_id').notNull().unique(),
+    name: text('name').notNull(),
+    place: text('place').notNull(),
+    year: integer('year').notNull(),
+    start_date: text('start_date'),
+    end_date: text('end_date'),
+    description: text('description'),
+    is_active: integer('is_active').default(1),
+    created_at: timestamp('created_at').defaultNow(),
+    updated_at: timestamp('updated_at').defaultNow(),
+    deleted: boolean('deleted').default(false)
+});
+
 export const medicalRecords = pgTable('medical_records', {
     id: serial('id').primaryKey(),
     public_id: uuid('public_id').notNull().unique(), // The Sync UUID
+    edition_id: integer('edition_id').references(() => editions.id),
 
     dossier_number: text('dossier_number'),
     last_name: text('last_name'),

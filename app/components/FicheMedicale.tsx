@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { calculateAge } from '@/lib/age-utils';
-import { MedicalRecord } from '@/lib/client-db';
+import { MedicalRecord, Edition } from '@/lib/client-db';
+import { useSync } from '../hooks/useSync';
 
 // Icons
 const Icons = {
@@ -71,6 +72,9 @@ const VitalCard = ({ label, name, value, unit, icon, onChange, color = "indigo" 
 
 interface FicheMedicaleProps {
     initialData?: Partial<MedicalRecord>;
+    currentEditionId?: number;
+    edition?: Edition | null;
+    onChangeEdition?: () => void;
     onSuccess?: () => void;
     onNew?: () => void;
 }
@@ -110,7 +114,8 @@ interface FormState {
     [key: string]: string | number | boolean; // Index signature for dynamic access
 }
 
-export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMedicaleProps) {
+export default function FicheMedicale({ initialData, currentEditionId, edition, onChangeEdition, onSuccess, onNew }: FicheMedicaleProps) {
+    const { status, pendingCount, manualSync } = useSync();
     const [loading, setLoading] = useState(false);
 
     const defaultState: FormState = {
@@ -245,7 +250,8 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                 asa_score: parseInt(String(payload.asa_score)) || 0,
                 distance: String(payload.distance || 'non précisé'),
                 photo_url: '',
-                created_at: initialData?.created_at || new Date().toISOString()
+                created_at: initialData?.created_at || new Date().toISOString(),
+                edition_id: currentEditionId
             };
 
             const dbModule = await import('@/lib/client-db');
@@ -290,11 +296,30 @@ export default function FicheMedicale({ initialData, onSuccess, onNew }: FicheMe
                             Fiche <span className="text-indigo-600">Médicale</span>
                         </h1>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className="px-4 py-2 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                            SYSTEM READY
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Sync Status */}
+                        <div
+                            onClick={manualSync}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
+                            title="Cliquez pour synchroniser"
+                        >
+                            <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                            {status === 'syncing' ? 'SYNCHRO...' : status === 'offline' ? 'OFFLINE' : 'ONLINE'}
+                            {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
                         </div>
+
+                        {/* Edition Badge */}
+                        {edition && (
+                            <button
+                                onClick={onChangeEdition}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 transition-colors"
+                            >
+                                <span>📍 {edition.place} • {edition.year}</span>
+                                <span className="text-indigo-300">|</span>
+                                <span className="hidden sm:inline">{edition.name}</span>
+                                <span className="ml-1 text-lg leading-none">🔄</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </header>

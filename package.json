@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "migrate:ages": "tsx scripts/migrate-ages.ts",
-    "recalculate:ages": "tsx scripts/recalculate-ages-neon.ts"
+    "recalculate:ages": "tsx scripts/recalculate-ages-neon.ts",
+    "migrate:sqlite-editions": "tsx scripts/migrate-sqlite-editions.ts",
+    "migrate:neon-editions": "tsx scripts/migrate-neon-editions.ts",
+    "migrate:all-editions": "tsx scripts/migrate-sqlite-editions.ts && tsx scripts/migrate-neon-editions.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

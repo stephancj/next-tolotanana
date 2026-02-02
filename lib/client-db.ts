@@ -1,7 +1,24 @@
 import Dexie, { Table } from 'dexie';
 
+export interface Edition {
+    id?: number;
+    public_id: string;
+    name: string;
+    place: string;
+    year: number;
+    start_date?: string;
+    end_date?: string;
+    description?: string;
+    is_active: number;
+    created_at: string;
+    updated_at: string;
+    deleted: number;
+    sync_status?: 'synced' | 'pending_update' | 'pending_delete';
+}
+
 export interface MedicalRecord {
     id?: number;
+    edition_id?: number; // Foreign key to editions
     dossier_number: string;
     last_name: string;
     first_name: string;
@@ -47,14 +64,16 @@ export interface MedicalRecord {
 }
 
 export class TolotananaDB extends Dexie {
+    editions!: Table<Edition>;
     medical_records!: Table<MedicalRecord>;
 
     constructor() {
         super('tolotananaDB');
+
+        // Version 2: Initial schema with sync support
         this.version(2).stores({
             medical_records: '++id, public_id, dossier_number, last_name, created_at, sync_status, deleted'
         }).upgrade(tx => {
-            // Migration to version 2: Add default values for existing records
             return tx.table('medical_records').toCollection().modify(record => {
                 if (!record.public_id) {
                     record.public_id = crypto.randomUUID();
@@ -67,6 +86,37 @@ export class TolotananaDB extends Dexie {
                 }
                 if (!record.updated_at) {
                     record.updated_at = new Date().toISOString();
+                }
+            });
+        });
+
+        // Version 3: Add editions table and edition_id to medical_records
+        this.version(3).stores({
+            editions: '++id, public_id, place, year, is_active, sync_status, deleted',
+            medical_records: '++id, public_id, edition_id, dossier_number, last_name, created_at, sync_status, deleted'
+        }).upgrade(async tx => {
+            // Create default edition
+            const defaultEdition: Edition = {
+                public_id: crypto.randomUUID(),
+                name: 'Mission Morondava 2026',
+                place: 'Morondava',
+                year: 2026,
+                start_date: '2026-01-01',
+                end_date: '2026-12-31',
+                description: 'Mission médicale annuelle à Morondava',
+                is_active: 1,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                deleted: 0,
+                sync_status: 'pending_update'
+            };
+
+            const editionId = await tx.table('editions').add(defaultEdition);
+
+            // Assign all existing medical records to the default edition
+            return tx.table('medical_records').toCollection().modify(record => {
+                if (!record.edition_id) {
+                    record.edition_id = editionId as number;
                 }
             });
         });

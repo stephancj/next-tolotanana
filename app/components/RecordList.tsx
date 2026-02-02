@@ -1,13 +1,17 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, MedicalRecord } from '@/lib/client-db';
+import { db, MedicalRecord, Edition } from '@/lib/client-db';
 import { useState, useEffect, useCallback } from 'react';
 import { getAgeValue } from '@/lib/age-utils';
+import { useSync } from '../hooks/useSync';
 
 interface RecordListProps {
     onBack: () => void;
     onEdit?: (record: MedicalRecord) => void;
+    currentEditionId?: number;
+    edition?: Edition | null;
+    onChangeEdition?: () => void;
 }
 
 // Helper component to display age with color-coded badges
@@ -36,7 +40,8 @@ const AgeDisplay = ({ age }: { age: string | number }) => {
     );
 };
 
-export default function RecordList({ onBack, onEdit }: RecordListProps) {
+export default function RecordList({ onBack, onEdit, currentEditionId, edition, onChangeEdition }: RecordListProps) {
+    const { status, pendingCount, manualSync } = useSync();
     const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
     const [remoteRecords, setRemoteRecords] = useState<MedicalRecord[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
@@ -47,10 +52,16 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
 
     // Local Records
     const localRecords = useLiveQuery<MedicalRecord[]>(
-        () => db.medical_records
-            .filter(r => r.deleted !== 1)
-            .reverse()
-            .sortBy('created_at')
+        async () => {
+            let collection = db.medical_records.filter(r => r.deleted !== 1);
+
+            if (currentEditionId) {
+                collection = collection.filter(r => r.edition_id === currentEditionId);
+            }
+
+            return collection.reverse().sortBy('created_at');
+        },
+        [currentEditionId]
     );
 
     // Fetch Remote Records function
@@ -59,13 +70,19 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
         try {
             const res = await fetch('/api/records');
             const data = await res.json();
-            setRemoteRecords(data);
+
+            // Filter by edition if selected
+            const filteredData = currentEditionId
+                ? data.filter((r: MedicalRecord) => r.edition_id === currentEditionId)
+                : data;
+
+            setRemoteRecords(filteredData);
         } catch (err) {
             console.error("Failed to fetch remote records", err);
         } finally {
             setRemoteLoading(false);
         }
-    }, []);
+    }, [currentEditionId]);
 
     // Trigger fetch when switching to remote tab
     useEffect(() => {
@@ -214,15 +231,50 @@ export default function RecordList({ onBack, onEdit }: RecordListProps) {
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-4 pb-24">
-            <div className="flex justify-between items-center mb-6">
-                <button onClick={onBack} className="px-4 py-2 bg-white rounded-lg shadow-sm text-purple-600 font-bold flex items-center gap-2 hover:bg-gray-50 transition">
-                    ← Retour au formulaire
-                </button>
-                <div className="flex gap-2">
-                    <button onClick={downloadCSV} className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition font-bold flex items-center gap-2">
-                        📥 Exporter CSV ({activeTab})
+        <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 pb-24">
+
+            {/* HEADER */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={onBack} className="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-600 flex items-center justify-center transition-all shadow-sm">
+                        ←
                     </button>
+                    <div>
+                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Base de Données</h2>
+                        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Liste des Patients</h1>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <button onClick={downloadCSV} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg shadow-sm border border-emerald-100 hover:bg-emerald-100 transition font-bold flex items-center gap-2 text-xs">
+                        <span>📥</span> Exporter CSV ({activeTab})
+                    </button>
+
+                    <div className="w-px h-8 bg-gray-200 mx-2 hidden md:block"></div>
+
+                    {/* Sync Status */}
+                    <div
+                        onClick={manualSync}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
+                        title="Cliquez pour synchroniser"
+                    >
+                        <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                        {status === 'syncing' ? 'SYNCHRO...' : status === 'offline' ? 'OFFLINE' : 'ONLINE'}
+                        {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
+                    </div>
+
+                    {/* Edition Badge */}
+                    {edition && (
+                        <button
+                            onClick={onChangeEdition}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 transition-colors"
+                        >
+                            <span>📍 {edition.place} • {edition.year}</span>
+                            <span className="text-indigo-300">|</span>
+                            <span className="hidden sm:inline">{edition.name}</span>
+                            <span className="ml-1 text-lg leading-none">🔄</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

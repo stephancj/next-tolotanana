@@ -3,15 +3,50 @@
 import { useState, useEffect } from 'react';
 import FicheMedicale from './components/FicheMedicale';
 import RecordList from './components/RecordList';
+import EditionSelector from './components/EditionSelector';
+import EditionIndicator from './components/EditionIndicator';
 import { useSync } from './hooks/useSync';
-import { MedicalRecord } from '@/lib/client-db';
+import { MedicalRecord, Edition, db } from '@/lib/client-db';
+import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
 
 export default function Home() {
   const [view, setView] = useState<'form' | 'list'>('form');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | undefined>(undefined);
+  const [currentEdition, setCurrentEdition] = useState<Edition | null>(null);
+  const [showEditionSelector, setShowEditionSelector] = useState(false);
+  const [isLoadingEdition, setIsLoadingEdition] = useState(true);
 
   // Activate Sync
   const { status, pendingCount, manualSync } = useSync();
+
+  // Vérifier et charger l'édition au démarrage
+  useEffect(() => {
+    const loadEdition = async () => {
+      try {
+        const stored: StoredEdition | null = getSelectedEdition();
+
+        if (stored) {
+          // Charger l'édition depuis Dexie
+          const edition = await db.editions.get(stored.editionId);
+          if (edition && edition.is_active === 1 && edition.deleted === 0) {
+            setCurrentEdition(edition);
+            setIsLoadingEdition(false);
+            return;
+          }
+        }
+
+        // Pas d'édition valide → afficher le sélecteur
+        setShowEditionSelector(true);
+        setIsLoadingEdition(false);
+      } catch (error) {
+        console.error('Erreur lors du chargement de l\'édition:', error);
+        setShowEditionSelector(true);
+        setIsLoadingEdition(false);
+      }
+    };
+
+    loadEdition();
+  }, []);
 
   useEffect(() => {
     // Listen for custom event from FicheMedicale component
@@ -26,36 +61,54 @@ export default function Home() {
     return () => document.removeEventListener('switchTab', handleSwitch);
   }, []);
 
+  const handleEditionSelect = (edition: Edition) => {
+    setCurrentEdition(edition);
+    setShowEditionSelector(false);
+  };
+
+  const handleChangeEdition = () => {
+    setShowEditionSelector(true);
+  };
+
+  // Écran de chargement
+  if (isLoadingEdition) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-pink-50/30 font-[family-name:var(--font-geist-sans)]">
-      {/* SYNC STATUS INDICATOR */}
-      <div className="fixed top-4 right-4 z-50 flex items-center gap-2 bg-white/80 backdrop-blur px-3 py-1.5 rounded-full shadow-sm text-xs font-medium border border-gray-100">
-        <div className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></div>
-        <span className="text-gray-600">
-          {status === 'syncing' ? 'Synchro...' : status === 'offline' ? 'Offline' : 'En ligne'}
-        </span>
-        {pendingCount > 0 && (
-          <span className="bg-indigo-100 text-indigo-700 px-1.5 rounded-md">
-            {pendingCount} à envoyer
-          </span>
-        )}
-        <button onClick={manualSync} className="ml-1 text-gray-400 hover:text-indigo-600" title="Forcer la synchro">
-          ↻
-        </button>
-      </div>
+      {/* EDITION SELECTOR MODAL */}
+      {showEditionSelector && (
+        <EditionSelector
+          onSelect={handleEditionSelect}
+          onClose={() => setShowEditionSelector(false)}
+        />
+      )}
 
       {view === 'form' ? (
         <FicheMedicale
           key={selectedRecord ? selectedRecord.id : 'new'}
           initialData={selectedRecord}
+          currentEditionId={currentEdition?.id}
+          edition={currentEdition}
+          onChangeEdition={handleChangeEdition}
           onSuccess={() => {
             setSelectedRecord(undefined);
-            // Optional: switch to list or stay on form
           }}
-          onNew={() => setSelectedRecord(undefined)} // Reset form
+          onNew={() => setSelectedRecord(undefined)}
         />
       ) : (
         <RecordList
+          currentEditionId={currentEdition?.id}
+          edition={currentEdition}
+          onChangeEdition={handleChangeEdition}
           onBack={() => {
             setSelectedRecord(undefined);
             setView('form');
