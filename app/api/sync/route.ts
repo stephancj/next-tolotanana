@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
-import { medicalRecords } from '@/lib/schema';
+import { medicalRecords, editions } from '@/lib/schema';
 import { eq, gt, desc } from 'drizzle-orm';
 
 // PUSH: Client sends changes to server
@@ -30,9 +30,23 @@ export async function POST(req: Request) {
                 // Helper to safely convert to boolean for Postgres Boolean columns
                 const toBool = (val: unknown) => (val === true || val === 1 || val === '1' || val === 'true');
 
+                // Resolve Edition ID from public_id if provided (Client sends edition_public_id)
+                let mappedEditionId = null;
+                if (record.edition_public_id) {
+                    const edResult = await db.select({ id: editions.id })
+                        .from(editions)
+                        .where(eq(editions.public_id, record.edition_public_id))
+                        .limit(1);
+
+                    if (edResult.length > 0) {
+                        mappedEditionId = edResult[0].id;
+                    }
+                }
+
                 // sanitized object
                 const cleanRecord = {
                     public_id: record.public_id,
+                    edition_id: mappedEditionId,
                     dossier_number: record.dossier_number,
                     last_name: record.last_name,
                     first_name: record.first_name,
@@ -58,6 +72,7 @@ export async function POST(req: Request) {
 
                     // Explicitly cast to integer 0/1 for schema compatibility
                     program_mission: toInt(record.program_mission),
+                    planning_day: record.planning_day,
                     history_diabetes: toInt(record.history_diabetes),
                     history_hypertension: toInt(record.history_hypertension),
                     history_asthma: toInt(record.history_asthma),

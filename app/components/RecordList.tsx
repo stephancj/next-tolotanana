@@ -5,6 +5,8 @@ import { db, MedicalRecord, Edition } from '@/lib/client-db';
 import { useState, useEffect, useCallback } from 'react';
 import { getAgeValue } from '@/lib/age-utils';
 import { useSync } from '../hooks/useSync';
+import AdvancedSearch, { FilterCriterion } from './AdvancedSearch';
+import PatientDetailModal from './PatientDetailModal';
 
 interface RecordListProps {
     onBack: () => void;
@@ -46,6 +48,8 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
     const [remoteRecords, setRemoteRecords] = useState<MedicalRecord[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = useState(false);
+    const [advancedFilters, setAdvancedFilters] = useState<FilterCriterion[]>([]);
     const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
     const [sortField, setSortField] = useState<keyof MedicalRecord>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -91,18 +95,59 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
         }
     }, [activeTab, fetchRemoteRecords]);
 
-    // Filter records based on search query
+    // Filter records based on search query or advanced filters
     const filterRecords = (records: MedicalRecord[]) => {
-        if (!searchQuery) return records;
+        let filtered = records;
 
-        const query = searchQuery.toLowerCase();
-        return records.filter(r =>
-            r.last_name?.toLowerCase().includes(query) ||
-            r.first_name?.toLowerCase().includes(query) ||
-            r.dossier_number?.toLowerCase().includes(query) ||
-            r.address?.toLowerCase().includes(query) ||
-            r.distance?.toLowerCase().includes(query)
-        );
+        // 1. Filter by Edition (Already done for local, but ensure consistency)
+        if (currentEditionId) {
+            filtered = filtered.filter(r => r.edition_id === currentEditionId);
+        }
+
+        // 2. Advanced Filters OR Simple Search
+        if (isAdvancedSearchOpen && advancedFilters.length > 0) {
+            filtered = filtered.filter(record => {
+                // Determine logic: Default AND (every)
+                return advancedFilters.every(filter => {
+                    if (!filter.value) return true; // Ignore empty values
+
+                    // Get value to check
+                    const recordValue = filter.field === 'all'
+                        ? Object.values(record).join(' ').toLowerCase()
+                        : String(record[filter.field as keyof MedicalRecord] || '').toLowerCase();
+
+                    const filterValue = filter.value.toLowerCase();
+
+                    // Check operator
+                    switch (filter.operator) {
+                        case 'contains': return recordValue.includes(filterValue);
+                        case 'equals': return recordValue === filterValue;
+                        case 'starts_with': return recordValue.startsWith(filterValue);
+                        case 'ends_with': return recordValue.endsWith(filterValue);
+                        case 'gt':
+                            const numRec = parseFloat(recordValue);
+                            const numFilt = parseFloat(filterValue);
+                            return !isNaN(numRec) && !isNaN(numFilt) && numRec > numFilt;
+                        case 'lt':
+                            const numRecLt = parseFloat(recordValue);
+                            const numFiltLt = parseFloat(filterValue);
+                            return !isNaN(numRecLt) && !isNaN(numFiltLt) && numRecLt < numFiltLt;
+                        default: return true;
+                    }
+                });
+            });
+        } else if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            return filtered.filter(r =>
+                r.last_name?.toLowerCase().includes(query) ||
+                r.first_name?.toLowerCase().includes(query) ||
+                r.dossier_number?.toLowerCase().includes(query) ||
+                r.address?.toLowerCase().includes(query) ||
+                r.distance?.toLowerCase().includes(query)
+            );
+        }
+
+        return filtered;
     };
 
     // Sort records
@@ -305,267 +350,188 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                 </button>
             </div>
 
-            {/* Search Bar */}
+            {/* SEARCH AREA */}
             <div className="mb-6">
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="🔍 Rechercher par nom, prénom, dossier, adresse..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full px-4 py-3 pl-12 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-sm"
-                    />
-                    {searchQuery && (
+                {!isAdvancedSearchOpen ? (
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+                            <input
+                                type="text"
+                                placeholder="Rechercher (Nom, Prénom, Dossier, Adresse...)"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm transition-all"
+                            />
+                        </div>
                         <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold"
+                            onClick={() => setIsAdvancedSearchOpen(true)}
+                            className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 flex items-center gap-2 hover:border-indigo-300 transition-all"
                         >
-                            ✕
+                            <span>⚡</span> <span className="hidden sm:inline">Filtres</span>
                         </button>
-                    )}
-                </div>
-                {searchQuery && (
-                    <div className="mt-2 text-sm text-gray-500">
-                        {displayRecords.length} résultat{displayRecords.length > 1 ? 's' : ''} trouvé{displayRecords.length > 1 ? 's' : ''}
                     </div>
+                ) : (
+                    <AdvancedSearch
+                        isOpen={isAdvancedSearchOpen}
+                        onClose={() => setIsAdvancedSearchOpen(false)}
+                        onFilterChange={setAdvancedFilters}
+                    />
                 )}
+            </div>
+
+            {/* TABS & COUNTERS */}
+            {/* RESULT COUNT */}
+            <div className="mb-4 text-sm text-gray-500 font-medium px-1">
+                {displayRecords.length} résultat{displayRecords.length > 1 ? 's' : ''} trouvé{displayRecords.length > 1 ? 's' : ''}
             </div>
 
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
                 {activeTab === 'local' ? "Liste des Patients (Hors ligne)" : "Liste des Patients (Sauvegardés)"}
             </h2>
 
-            {loading ? (
-                <div className="flex justify-center p-12 text-gray-400">Chargement...</div>
-            ) : displayRecords.length === 0 ? (
-                <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
-                    {activeTab === 'local'
-                        ? "Aucun dossier local. Commencez par en créer un."
-                        : "Aucun dossier sur le serveur."}
-                </div>
-            ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
-                                <tr>
-                                    <SortableHeader field="dossier_number" label="N° Dossier" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="last_name" label="Nom" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="first_name" label="Prénom" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="age" label="Âge" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="gender" label="Genre" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="address" label="Adresse" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="distance" label="Distance" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="clinical_diagnosis" label="Diagnostic" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <SortableHeader field="program_mission" label="Mission" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    {activeTab === 'local' && <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Statut</th>}
-                                    <SortableHeader field="created_at" label="Date" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-indigo-50 to-purple-50">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {displayRecords.map((r, idx) => (
-                                    <tr key={r.id || idx} className="hover:bg-indigo-50/30 transition-colors">
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-semibold">
-                                                {r.dossier_number || 'N/A'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 font-bold text-gray-800">{r.last_name || 'Inconnu'}</td>
-                                        <td className="px-4 py-3 text-gray-700">{r.first_name || '-'}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <AgeDisplay age={r.age} />
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-block w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-700' :
-                                                r.gender === 'F' ? 'bg-pink-100 text-pink-700' :
-                                                    'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {r.gender === 'M' ? '♂' : r.gender === 'F' ? '♀' : '?'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.address}>
-                                            {r.address || '-'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${r.distance === 'en ville' ? 'bg-green-100 text-green-700' :
-                                                r.distance === 'un peu loin' ? 'bg-yellow-100 text-yellow-700' :
-                                                    r.distance === 'loin' ? 'bg-orange-100 text-orange-700' :
-                                                        'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {r.distance || 'non précisé'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.clinical_diagnosis}>
-                                            {r.clinical_diagnosis || '-'}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${r.program_mission ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                                }`}>
-                                                {r.program_mission ? 'OUI' : 'NON'}
-                                            </span>
-                                        </td>
-                                        {activeTab === 'local' && (
+            {
+                loading ? (
+                    <div className="flex justify-center p-12 text-gray-400">Chargement...</div>
+                ) : displayRecords.length === 0 ? (
+                    <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
+                        {activeTab === 'local'
+                            ? "Aucun dossier local. Commencez par en créer un."
+                            : "Aucun dossier sur le serveur."}
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                                    <tr>
+                                        <SortableHeader field="dossier_number" label="N° Dossier" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="last_name" label="Patient" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        {/* First name combined */}
+                                        <SortableHeader field="age" label="Âge" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        {/* Gender removed */}
+                                        {/* Address removed */}
+                                        <SortableHeader field="distance" label="Distance" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="clinical_diagnosis" label="Diagnostic" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        {/* Mission removed */}
+                                        <SortableHeader field="planning_day" label="Jour Prévu" onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        {activeTab === 'local' && <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Statut</th>}
+                                        {/* Date removed */}
+                                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-indigo-50 to-purple-50">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {displayRecords.map((r, idx) => (
+                                        <tr key={r.id || idx} className="hover:bg-indigo-50/30 transition-colors">
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-2 h-2 rounded-full ${r.program_mission ? 'bg-green-500' : 'bg-red-300'}`} title={r.program_mission ? 'Programmé' : 'Non programmé'}></span>
+                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${r.gender === 'M' ? 'bg-blue-100 text-blue-700' :
+                                                        r.gender === 'F' ? 'bg-pink-100 text-pink-700' :
+                                                            'bg-gray-100 text-gray-700'
+                                                        }`}>
+                                                        {r.dossier_number || 'N/A'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-gray-800 uppercase text-sm leading-tight">{r.last_name || 'Inconnu'}</span>
+                                                    <span className="text-xs text-gray-500">{r.first_name || ''}</span>
+                                                </div>
+                                            </td>
                                             <td className="px-4 py-3 text-center">
-                                                {r.sync_status === 'synced' ? (
-                                                    <span className="text-green-600 flex items-center justify-center gap-1 text-xs">
-                                                        <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                                                        Sync
+                                                <AgeDisplay age={r.age} />
+                                            </td>
+                                            {/* Gender removed */}
+                                            {/* Address removed */}
+                                            <td className="px-4 py-3">
+                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${r.distance === 'en ville' ? 'bg-green-100 text-green-700' :
+                                                    r.distance === 'un peu loin' ? 'bg-yellow-100 text-yellow-700' :
+                                                        r.distance === 'loin' ? 'bg-orange-100 text-orange-700' :
+                                                            'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {r.distance || 'non précisé'}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.clinical_diagnosis}>
+                                                {r.clinical_diagnosis || '-'}
+                                            </td>
+                                            {/* Mission removed */}
+                                            <td className="px-4 py-3 text-center">
+                                                {r.planning_day ? (
+                                                    <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                        {r.planning_day}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-orange-500 flex items-center justify-center gap-1 text-xs">
-                                                        <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-                                                        En attente
-                                                    </span>
+                                                    <span className="text-gray-300">-</span>
                                                 )}
                                             </td>
-                                        )}
-                                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
-                                            {new Date(r.created_at).toLocaleDateString('fr-FR', {
-                                                day: '2-digit',
-                                                month: '2-digit',
-                                                year: 'numeric'
-                                            })}
-                                        </td>
-                                        <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-white">
-                                            <div className="flex gap-1 justify-end">
-                                                {activeTab === 'remote' && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
-                                                        className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
-                                                        title="Voir les détails"
-                                                    >
-                                                        �️
-                                                    </button>
-                                                )}
-                                                {onEdit && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onEdit(r); }}
-                                                        className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition"
-                                                        title="Modifier"
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                )}
-                                                {activeTab === 'local' && (
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
-                                                        className="p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition"
-                                                        title="Supprimer"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                            {activeTab === 'local' && (
+                                                <td className="px-4 py-3 text-center">
+                                                    {r.sync_status === 'synced' ? (
+                                                        <span className="text-green-600 flex items-center justify-center gap-1 text-xs">
+                                                            <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
+                                                            Sync
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-orange-500 flex items-center justify-center gap-1 text-xs">
+                                                            <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                                                            En attente
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            )}
+                                            {/* Date removed */}
+                                            <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-white">
+                                                <div className="flex gap-1 justify-end">
+                                                    {activeTab === 'remote' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
+                                                            className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
+                                                            title="Voir les détails"
+                                                        >
+                                                            �️
+                                                        </button>
+                                                    )}
+                                                    {onEdit && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                                                            className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition"
+                                                            title="Modifier"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                    )}
+                                                    {activeTab === 'local' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
+                                                            className="p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition"
+                                                            title="Supprimer"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Modal de détails */}
+            {/* Modal de détails */}
             {selectedRecord && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedRecord(null)}>
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h2 className="text-2xl font-bold">{selectedRecord.last_name} {selectedRecord.first_name}</h2>
-                                    <p className="text-indigo-100 mt-1">Dossier: {selectedRecord.dossier_number || 'N/A'}</p>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedRecord(null)}
-                                    className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition"
-                                >
-                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="p-6 space-y-6">
-                            {/* Informations personnelles */}
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="text-indigo-600">👤</span> Informations Personnelles
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
-                                    <DetailItem label="Date de naissance" value={selectedRecord.dob} />
-                                    <div className="flex flex-col">
-                                        <span className="text-xs font-semibold text-gray-500 mb-1">Âge</span>
-                                        <AgeDisplay age={selectedRecord.age} />
-                                    </div>
-                                    <DetailItem label="Genre" value={selectedRecord.gender === 'M' ? 'Masculin' : selectedRecord.gender === 'F' ? 'Féminin' : selectedRecord.gender} />
-                                    <DetailItem label="Téléphone" value={[selectedRecord.phone1, selectedRecord.phone2].filter(Boolean).join(' / ') || 'N/A'} />
-                                    <DetailItem label="Adresse" value={selectedRecord.address} className="col-span-2" />
-                                    <DetailItem label="Distance" value={selectedRecord.distance || 'non précisé'} />
-                                </div>
-                            </div>
-
-                            {/* Paramètres médicaux */}
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="text-red-600">❤️</span> Paramètres Médicaux
-                                </h3>
-                                <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
-                                    <DetailItem label="Poids" value={`${selectedRecord.weight || '?'} kg`} />
-                                    <DetailItem label="Taille" value={`${selectedRecord.height || '?'} cm`} />
-                                    <DetailItem label="IMC" value={selectedRecord.bmi?.toString() || '?'} />
-                                    <DetailItem label="Tension" value={selectedRecord.blood_pressure || 'N/A'} />
-                                    <DetailItem label="Température" value={`${selectedRecord.temperature || '?'} °C`} />
-                                    <DetailItem label="Pouls" value={`${selectedRecord.heart_rate || '?'} bpm`} />
-                                    <DetailItem label="Resp." value={`${selectedRecord.respiratory_rate || '?'} cpm`} />
-                                    <DetailItem label="SpO2" value={`${selectedRecord.spo2 || '?'} %`} />
-                                </div>
-                            </div>
-
-                            {/* Consultation chirurgicale */}
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="text-rose-600">🏥</span> Consultation Chirurgicale
-                                </h3>
-                                <div className="bg-gray-50 p-4 rounded-xl space-y-3">
-                                    <DetailItem label="Diagnostic clinique" value={selectedRecord.clinical_diagnosis || 'N/A'} />
-                                    <DetailItem label="Type d'intervention" value={selectedRecord.intervention_type || 'N/A'} />
-                                    <DetailItem label="Observation" value={selectedRecord.observation || 'N/A'} />
-                                    <DetailItem label="À programmer" value={selectedRecord.program_mission ? 'Oui' : 'Non'} />
-                                </div>
-                            </div>
-
-                            {/* Antécédents */}
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                                    <span className="text-amber-600">📋</span> Antécédents
-                                </h3>
-                                <div className="bg-gray-50 p-4 rounded-xl">
-                                    <div className="flex flex-wrap gap-2 mb-3">
-                                        {selectedRecord.history_diabetes === 1 && <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">Diabète</span>}
-                                        {selectedRecord.history_hypertension === 1 && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">Hypertension</span>}
-                                        {selectedRecord.history_asthma === 1 && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">Asthme</span>}
-                                        {selectedRecord.history_cardiopathy === 1 && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">Cardiopathie</span>}
-                                        {selectedRecord.history_none === 1 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">Aucun connu</span>}
-                                    </div>
-                                    {selectedRecord.history_others && (
-                                        <DetailItem label="Autres antécédents" value={selectedRecord.history_others} />
-                                    )}
-                                    <div className="grid grid-cols-2 gap-4 mt-3">
-                                        <DetailItem label="Score ASA" value={selectedRecord.asa_score?.toString() || 'N/A'} />
-                                        <DetailItem label="Type d'anesthésie" value={selectedRecord.anesthesia_type || 'N/A'} />
-                                    </div>
-                                    {selectedRecord.anesthesia_observation && (
-                                        <DetailItem label="Observation anesthésie" value={selectedRecord.anesthesia_observation} className="mt-3" />
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <PatientDetailModal
+                    record={selectedRecord}
+                    onClose={() => setSelectedRecord(null)}
+                />
             )}
-        </div>
+        </div >
     );
 }
 
@@ -604,13 +570,5 @@ function SortableHeader({
     );
 }
 
-// Composant helper pour afficher les détails
-function DetailItem({ label, value, className = '' }: { label: string; value?: string | number; className?: string }) {
-    return (
-        <div className={className}>
-            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-            <div className="text-gray-800 font-medium">{value || 'N/A'}</div>
-        </div>
-    );
-}
+
 

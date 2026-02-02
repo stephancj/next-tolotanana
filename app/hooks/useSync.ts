@@ -46,6 +46,63 @@ export function useSync() {
     };
 
 
+    const syncEditions = async () => {
+        // 1. Ensure public_ids for editions
+        const editionsNoId = await db.editions.filter(e => !e.public_id).toArray();
+        if (editionsNoId.length > 0) {
+            console.log(`[SYNC] Found ${editionsNoId.length} editions without public_id`);
+            await db.transaction('rw', db.editions, async () => {
+                for (const ed of editionsNoId) {
+                    if (ed.id) {
+                        const public_id = crypto.randomUUID();
+                        await db.editions.update(ed.id, {
+                            public_id,
+                            sync_status: 'pending_update',
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                }
+            });
+        }
+
+        // 2. Fetch/Push pending editions
+        const pendingEditions = await db.editions
+            .filter(e => e.sync_status !== 'synced')
+            .toArray();
+
+        // 2.5 Only push active editions if needed (or all pending)
+        if (pendingEditions.length > 0) {
+            const validEditions = pendingEditions.filter(e => e.public_id);
+            if (validEditions.length > 0) {
+                try {
+                    console.log(`[SYNC] Pushing ${validEditions.length} editions...`);
+                    const res = await fetch('/api/editions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ editions: validEditions })
+                    });
+
+                    if (res.ok) {
+                        const result = await res.json();
+                        if (result.processed && result.processed.length > 0) {
+                            await db.transaction('rw', db.editions, async () => {
+                                for (const pid of result.processed) {
+                                    const ed = await db.editions.where('public_id').equals(pid).first();
+                                    if (ed && ed.id) {
+                                        await db.editions.update(ed.id, { sync_status: 'synced' });
+                                    }
+                                }
+                            });
+                            console.log(`[SYNC] ✓ Synced ${result.processed.length} editions`);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to sync editions", e);
+                }
+            }
+        }
+    };
+
     const pushChanges = async () => {
         console.log('[SYNC] Starting pushChanges...');
 
@@ -63,7 +120,19 @@ export function useSync() {
 
         try {
             // Sanitize: Ensure every record has a public_id before sending
-            const validChanges = pendingChanges.filter(r => r.public_id);
+            // AND enrich with edition_public_id mapping
+            const validChanges = await Promise.all(
+                pendingChanges
+                    .filter(r => r.public_id)
+                    .map(async (r) => {
+                        let edition_public_id = undefined;
+                        if (r.edition_id) {
+                            const ed = await db.editions.get(r.edition_id);
+                            edition_public_id = ed?.public_id;
+                        }
+                        return { ...r, edition_public_id };
+                    })
+            );
 
             console.log(`[SYNC] Valid records with public_id: ${validChanges.length}`);
             if (validChanges.length > 0) {
@@ -142,6 +211,9 @@ export function useSync() {
         try {
             // STEP 0: Ensure all records have public_id
             await ensurePublicIds();
+
+            // STEP 0.5: Sync Editions first (parents)
+            await syncEditions();
 
             // STEP 1: PUSH (Send changes only)
             await pushChanges();

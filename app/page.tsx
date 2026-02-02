@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import FicheMedicale from './components/FicheMedicale';
 import RecordList from './components/RecordList';
 import EditionSelector from './components/EditionSelector';
-import EditionIndicator from './components/EditionIndicator';
 import { useSync } from './hooks/useSync';
 import { MedicalRecord, Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
@@ -17,7 +16,7 @@ export default function Home() {
   const [isLoadingEdition, setIsLoadingEdition] = useState(true);
 
   // Activate Sync
-  const { status, pendingCount, manualSync } = useSync();
+  useSync();
 
   // Vérifier et charger l'édition au démarrage
   useEffect(() => {
