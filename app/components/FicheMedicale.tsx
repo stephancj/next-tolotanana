@@ -101,6 +101,7 @@ interface FormState {
     intervention_type: string;
     observation: string;
     program_mission: boolean;
+    planning_day: string;
     history_diabetes: boolean;
     history_hypertension: boolean;
     history_asthma: boolean;
@@ -140,6 +141,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
         intervention_type: '',
         observation: '',
         program_mission: false,
+        planning_day: '',
         history_diabetes: false,
         history_hypertension: false,
         history_asthma: false,
@@ -157,6 +159,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
         ...initialData,
         // Ensure boolean fields are actually booleans for checkboxes
         program_mission: !!initialData.program_mission,
+        planning_day: initialData.planning_day || '',
         history_diabetes: !!initialData.history_diabetes,
         history_hypertension: !!initialData.history_hypertension,
         history_asthma: !!initialData.history_asthma,
@@ -231,6 +234,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
             const recordToSave = {
                 ...payload,
                 program_mission: payload.program_mission ? 1 : 0,
+                planning_day: payload.program_mission ? payload.planning_day : '',
                 history_diabetes: payload.history_diabetes ? 1 : 0,
                 history_hypertension: payload.history_hypertension ? 1 : 0,
                 history_asthma: payload.history_asthma ? 1 : 0,
@@ -484,7 +488,11 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                                         type="radio"
                                                         name="program_mission_radio"
                                                         checked={formData.program_mission === val}
-                                                        onChange={() => setFormData(p => ({ ...p, program_mission: val }))}
+                                                        onChange={() => setFormData(p => ({
+                                                            ...p,
+                                                            program_mission: val,
+                                                            planning_day: val && !p.planning_day ? 'A définir' : (!val ? '' : p.planning_day)
+                                                        }))}
                                                         className="w-5 h-5 text-orange-500 focus:ring-orange-400 bg-white"
                                                     />
                                                     <span className={`font-semibold ${formData.program_mission === val ? 'text-orange-700' : 'text-gray-500'}`}>
@@ -493,6 +501,28 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                                 </label>
                                             ))}
                                         </div>
+
+                                        {/* PLANNING DAY SELECTOR */}
+                                        {formData.program_mission && (
+                                            <div className="mt-4 pt-4 border-t border-orange-200/50 animate-fadeIn">
+                                                <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">Jour Prévu</label>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {['A définir', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => (
+                                                        <button
+                                                            key={day}
+                                                            type="button"
+                                                            onClick={() => setFormData(p => ({ ...p, planning_day: day }))}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day
+                                                                    ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                                                    : 'bg-white text-gray-500 border-orange-100 hover:border-orange-200 hover:bg-orange-50'
+                                                                }`}
+                                                        >
+                                                            {day}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

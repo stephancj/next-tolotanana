@@ -47,6 +47,7 @@ export const medicalRecords = pgTable('medical_records', {
     intervention_type: text('intervention_type'),
     observation: text('observation'),
     program_mission: integer('program_mission').default(0), // 0 or 1
+    planning_day: text('planning_day'), // 'Lundi', 'Mardi', etc.
 
     // Pre-anesthetic Consultation
     history_diabetes: integer('history_diabetes').default(0),

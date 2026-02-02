@@ -41,6 +41,7 @@ export interface MedicalRecord {
     intervention_type: string;
     observation: string;
     program_mission: number;
+    planning_day?: string; // 'Lundi', 'Mardi', etc.
 
     // History (stored as boolean/number 0 or 1)
     history_diabetes: number;
