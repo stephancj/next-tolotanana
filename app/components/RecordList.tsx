@@ -286,7 +286,10 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                     </button>
                     <div>
                         <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Base de Données</h2>
-                        <h1 className="text-2xl font-black text-slate-800 tracking-tight">Liste des Patients</h1>
+                        <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                            Liste des Patients
+                        </h1>
                     </div>
                 </div>
 

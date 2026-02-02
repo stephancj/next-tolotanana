@@ -296,7 +296,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                     <div>
                         <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Fandidiana Maimaimpoana</h2>
                         <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-lg shadow-lg shadow-indigo-200">✚</span>
+                            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-md" />
                             Fiche <span className="text-indigo-600">Médicale</span>
                         </h1>
                     </div>
@@ -513,8 +513,8 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                                             type="button"
                                                             onClick={() => setFormData(p => ({ ...p, planning_day: day }))}
                                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day
-                                                                    ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                                                                    : 'bg-white text-gray-500 border-orange-100 hover:border-orange-200 hover:bg-orange-50'
+                                                                ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                                                                : 'bg-white text-gray-500 border-orange-100 hover:border-orange-200 hover:bg-orange-50'
                                                                 }`}
                                                         >
                                                             {day}

@@ -78,7 +78,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
-                        <span className="text-3xl">📋</span>
+                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-full p-1" />
                         Sélectionner une Édition
                     </h2>
                     <p className="text-indigo-100 mt-2">
