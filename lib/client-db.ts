@@ -96,9 +96,9 @@ export class TolotananaDB extends Dexie {
             editions: '++id, public_id, place, year, is_active, sync_status, deleted',
             medical_records: '++id, public_id, edition_id, dossier_number, last_name, created_at, sync_status, deleted'
         }).upgrade(async tx => {
-            // Create default edition
+            // Create default edition with a STATIC UUID to prevent duplicates across devices
             const defaultEdition: Edition = {
-                public_id: crypto.randomUUID(),
+                public_id: 'f5cb4171-b3a2-4bb5-8d27-844f01b4a515', // Fixed UUID for Morondava 2026
                 name: 'Mission Morondava 2026',
                 place: 'Morondava',
                 year: 2026,
