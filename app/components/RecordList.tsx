@@ -459,7 +459,11 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                                             </td>
                                             {/* Mission removed */}
                                             <td className="px-4 py-3 text-center">
-                                                {r.planning_day ? (
+                                                {!r.program_mission ? (
+                                                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
+                                                        NON
+                                                    </span>
+                                                ) : r.planning_day ? (
                                                     <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
                                                         {r.planning_day}
                                                     </span>
