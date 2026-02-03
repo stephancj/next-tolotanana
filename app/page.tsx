@@ -5,13 +5,17 @@ import FicheMedicale from './components/FicheMedicale';
 import RecordList from './components/RecordList';
 import EditionSelector from './components/EditionSelector';
 import Dashboard from './components/Dashboard';
+import SurgeonManager from './components/SurgeonManager';
+import WeeklyPlanning from './components/WeeklyPlanning';
+import OperationForm from './components/OperationForm';
 import { useSync } from './hooks/useSync';
 import { MedicalRecord, Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
 
 export default function Home() {
-  const [view, setView] = useState<'dashboard' | 'form' | 'list'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'form' | 'list' | 'surgeons' | 'planning' | 'operation'>('dashboard');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | undefined>(undefined);
+  const [selectedOperationRecord, setSelectedOperationRecord] = useState<MedicalRecord | undefined>(undefined);
   const [currentEdition, setCurrentEdition] = useState<Edition | null>(null);
   const [showEditionSelector, setShowEditionSelector] = useState(false);
   const [isLoadingEdition, setIsLoadingEdition] = useState(true);
@@ -39,7 +43,7 @@ export default function Home() {
         setShowEditionSelector(true);
         setIsLoadingEdition(false);
       } catch (error) {
-        console.error('Erreur lors du chargement de l\'édition:', error);
+        console.error("Erreur lors du chargement de l'édition:", error);
         setShowEditionSelector(true);
         setIsLoadingEdition(false);
       }
@@ -112,9 +116,32 @@ export default function Home() {
           onChangeEdition={handleChangeEdition}
           onSuccess={() => {
             setSelectedRecord(undefined);
-            setView('list'); // After save, go to list or dashboard? Let's go to list for confirmation usually
+            setView('list');
           }}
           onNew={() => setSelectedRecord(undefined)}
+        />
+      ) : view === 'surgeons' ? (
+        <SurgeonManager
+          currentEdition={currentEdition}
+          onBack={() => setView('dashboard')}
+        />
+      ) : view === 'planning' ? (
+        <WeeklyPlanning
+          currentEdition={currentEdition}
+          onBack={() => setView('dashboard')}
+          onEditOperation={(record) => {
+            setSelectedOperationRecord(record);
+            setView('operation');
+          }}
+        />
+      ) : view === 'operation' && selectedOperationRecord ? (
+        <OperationForm
+          record={selectedOperationRecord}
+          onBack={() => setView('planning')}
+          onSuccess={() => {
+            setSelectedOperationRecord(undefined);
+            setView('planning');
+          }}
         />
       ) : (
         <RecordList

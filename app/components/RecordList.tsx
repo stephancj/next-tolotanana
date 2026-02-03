@@ -3,10 +3,12 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MedicalRecord, Edition } from '@/lib/client-db';
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { getAgeValue } from '@/lib/age-utils';
 import { useSync } from '../hooks/useSync';
 import AdvancedSearch, { FilterCriterion } from './AdvancedSearch';
 import PatientDetailModal from './PatientDetailModal';
+import LoadingSpinner from './LoadingSpinner';
 
 interface RecordListProps {
     onBack: () => void;
@@ -287,7 +289,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                     <div>
                         <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Base de Données</h2>
                         <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+                            <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
                             Liste des Patients
                         </h1>
                     </div>
@@ -395,7 +397,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
 
             {
                 loading ? (
-                    <div className="flex justify-center p-12 text-gray-400">Chargement...</div>
+                    <LoadingSpinner message="Chargement de la liste..." fullScreen={false} />
                 ) : displayRecords.length === 0 ? (
                     <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
                         {activeTab === 'local'

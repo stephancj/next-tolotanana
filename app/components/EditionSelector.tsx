@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Edition } from '@/lib/client-db';
 import { saveSelectedEdition } from '@/lib/edition-storage';
+import LoadingSpinner from './LoadingSpinner';
 
 interface EditionSelectorProps {
     onSelect: (edition: Edition) => void;
@@ -60,16 +62,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
     };
 
     if (!editions) {
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Chargement des éditions...</p>
-                    </div>
-                </div>
-            </div>
-        );
+        return <LoadingSpinner message="Chargement des éditions..." />;
     }
 
     return (
@@ -78,7 +71,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                 {/* Header */}
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
-                        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white rounded-full p-1" />
+                        <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain bg-white rounded-full p-1" />
                         Sélectionner une Édition
                     </h2>
                     <p className="text-indigo-100 mt-2">

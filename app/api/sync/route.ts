@@ -84,6 +84,16 @@ export async function POST(req: Request) {
                     anesthesia_type: record.anesthesia_type,
                     anesthesia_observation: record.anesthesia_observation,
 
+                    // Pre-Op Check
+                    pre_op_checked: toBool(record.pre_op_checked),
+                    pre_op_checked_at: record.pre_op_checked_at ? new Date(record.pre_op_checked_at) : null,
+
+                    // Operation Details
+                    block_entry_time: record.block_entry_time,
+                    block_exit_time: record.block_exit_time,
+                    intervention_details: record.intervention_details,
+                    diagnosis_category: record.diagnosis_category,
+
                     created_at: record.created_at ? new Date(record.created_at) : new Date(),
                     updated_at: new Date(), // Always update timestamp on sync
                     deleted: toBool(record.deleted)

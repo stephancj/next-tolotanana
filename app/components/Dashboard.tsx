@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Edition, MedicalRecord } from '@/lib/client-db';
+import LoadingSpinner from './LoadingSpinner';
 
 // Icons
 const Icons = {
@@ -14,7 +15,7 @@ const Icons = {
 
 interface DashboardProps {
     currentEdition: Edition | null;
-    onNavigate: (view: 'form' | 'list') => void;
+    onNavigate: (view: 'form' | 'list' | 'surgeons' | 'planning') => void;
     onEdit: (record: MedicalRecord) => void;
 }
 
@@ -53,9 +54,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
 
             // 3. Filter by Remote Edition ID and deleted status
             const filtered = allRecords.filter((r: MedicalRecord) =>
-                r.edition_id === remoteEditionId &&
-                r.deleted !== 1 &&
-                String(r.deleted) !== 'true'
+                r.edition_id === remoteEditionId && !r.deleted
             );
 
             setRecords(filtered);
@@ -78,23 +77,40 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
         const programmed = records.filter(r => !!r.program_mission).length;
         const pending = total - programmed;
 
-        // Stats by Planning Day
+        // Stats by Planning Day (only programmed patients)
         const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
         const byDay = days.map(day => ({
             name: day,
-            count: records.filter(r => r.planning_day === day).length
+            count: records.filter(r => r.program_mission === 1 && r.planning_day === day).length
         }));
-        const undefinedDay = records.filter(r => !!r.program_mission && !days.includes(r.planning_day || '')).length;
+        const undefinedDay = records.filter(r => r.program_mission === 1 && !days.includes(r.planning_day || '')).length;
         if (undefinedDay > 0) byDay.push({ name: 'A définir', count: undefinedDay });
 
-        // Stats by Gender
+        // Stats by Gender (with detailed breakdown)
         const male = records.filter(r => r.gender === 'M').length;
-        const female = records.filter(r => r.gender === 'F').length;
+        const maleProgrammed = records.filter(r => r.gender === 'M' && r.program_mission === 1).length;
+        const malePending = male - maleProgrammed;
 
-        // Stats by Origin (Distance)
+        const female = records.filter(r => r.gender === 'F').length;
+        const femaleProgrammed = records.filter(r => r.gender === 'F' && r.program_mission === 1).length;
+        const femalePending = female - femaleProgrammed;
+
+        // Stats by Origin/Distance (with detailed breakdown)
         const local = records.filter(r => r.distance === 'en ville').length;
+        const localProgrammed = records.filter(r => r.distance === 'en ville' && r.program_mission === 1).length;
+        const localPending = local - localProgrammed;
+
         const nearby = records.filter(r => r.distance === 'un peu loin').length;
+        const nearbyProgrammed = records.filter(r => r.distance === 'un peu loin' && r.program_mission === 1).length;
+        const nearbyPending = nearby - nearbyProgrammed;
+
         const far = records.filter(r => r.distance === 'loin').length;
+        const farProgrammed = records.filter(r => r.distance === 'loin' && r.program_mission === 1).length;
+        const farPending = far - farProgrammed;
+
+        const unspecified = records.filter(r => !r.distance || r.distance === 'non précisé').length;
+        const unspecifiedProgrammed = records.filter(r => (!r.distance || r.distance === 'non précisé') && r.program_mission === 1).length;
+        const unspecifiedPending = unspecified - unspecifiedProgrammed;
 
         const today = new Date().toISOString().split('T')[0];
         const createdToday = records.filter(r => r.created_at && String(r.created_at).startsWith(today)).length;
@@ -104,19 +120,33 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
             .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
             .slice(0, 5);
 
-        return { total, programmed, pending, byDay, male, female, local, nearby, far, createdToday, recentRecords };
+        return {
+            total, programmed, pending, byDay,
+            male, maleProgrammed, malePending,
+            female, femaleProgrammed, femalePending,
+            local, localProgrammed, localPending,
+            nearby, nearbyProgrammed, nearbyPending,
+            far, farProgrammed, farPending,
+            unspecified, unspecifiedProgrammed, unspecifiedPending,
+            createdToday, recentRecords
+        };
     }, [records, loading]);
 
     if (loading && records.length === 0) {
-        return (
-            <div className="flex items-center justify-center p-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-            </div>
-        );
+        return <LoadingSpinner message="Chargement du tableau de bord..." />;
     }
 
     // Default stats object to prevent crashes if stats is null (though loading check handles most)
-    const s = stats || { total: 0, programmed: 0, pending: 0, byDay: [], male: 0, female: 0, local: 0, nearby: 0, far: 0, createdToday: 0, recentRecords: [] };
+    const s = stats || {
+        total: 0, programmed: 0, pending: 0, byDay: [],
+        male: 0, maleProgrammed: 0, malePending: 0,
+        female: 0, femaleProgrammed: 0, femalePending: 0,
+        local: 0, localProgrammed: 0, localPending: 0,
+        nearby: 0, nearbyProgrammed: 0, nearbyPending: 0,
+        far: 0, farProgrammed: 0, farPending: 0,
+        unspecified: 0, unspecifiedProgrammed: 0, unspecifiedPending: 0,
+        createdToday: 0, recentRecords: []
+    };
 
     return (
         <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 pb-24 text-slate-800 animate-fadeIn relative">
@@ -146,6 +176,18 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         title="Actualiser les données"
                     >
                         <span className={`${refreshing ? 'animate-spin' : ''}`}>🔄</span>
+                    </button>
+                    <button
+                        onClick={() => onNavigate('surgeons')}
+                        className="bg-white text-emerald-600 px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-50 transition border border-emerald-100 flex items-center gap-2"
+                    >
+                        <span>🩺</span> Équipe
+                    </button>
+                    <button
+                        onClick={() => onNavigate('planning')}
+                        className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition border border-blue-100 flex items-center gap-2"
+                    >
+                        <span>📅</span> Planning
                     </button>
                     <button
                         onClick={() => onNavigate('list')}
@@ -261,16 +303,43 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                             <span className="p-2 bg-pink-50 text-pink-600 rounded-lg"><Icons.Users /></span>
                             Par Genre
                         </h3>
-                        <div className="flex items-center gap-4">
-                            <div className="flex-1 bg-blue-50 p-4 rounded-xl border border-blue-100 flex flex-col items-center">
-                                <span className="text-3xl">👨</span>
-                                <span className="font-bold text-blue-800 text-xl">{s.male}</span>
-                                <span className="text-xs font-bold text-blue-400 uppercase">Hommes</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Hommes */}
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border-2 border-blue-200">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-4xl">👨</span>
+                                    <span className="font-black text-blue-900 text-3xl">{s.male}</span>
+                                </div>
+                                <div className="text-sm font-bold text-blue-800 mb-3">HOMMES</div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                        <span className="text-xs font-medium text-blue-700">✓ Programmés</span>
+                                        <span className="font-bold text-blue-900">{s.maleProgrammed}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                        <span className="text-xs font-medium text-blue-700">⏳ Pas programmés</span>
+                                        <span className="font-bold text-blue-900">{s.malePending}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex-1 bg-pink-50 p-4 rounded-xl border border-pink-100 flex flex-col items-center">
-                                <span className="text-3xl">👩</span>
-                                <span className="font-bold text-pink-800 text-xl">{s.female}</span>
-                                <span className="text-xs font-bold text-pink-400 uppercase">Femmes</span>
+
+                            {/* Femmes */}
+                            <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-5 rounded-xl border-2 border-pink-200">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-4xl">👩</span>
+                                    <span className="font-black text-pink-900 text-3xl">{s.female}</span>
+                                </div>
+                                <div className="text-sm font-bold text-pink-800 mb-3">FEMMES</div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                        <span className="text-xs font-medium text-pink-700">✓ Programmées</span>
+                                        <span className="font-bold text-pink-900">{s.femaleProgrammed}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                        <span className="text-xs font-medium text-pink-700">⏳ Pas programmées</span>
+                                        <span className="font-bold text-pink-900">{s.femalePending}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -281,84 +350,141 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                             <span className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Icons.Chart /></span>
                             Provenance
                         </h3>
-                        <div className="flex gap-2 h-32 items-end">
-                            <div className="flex-1 flex flex-col justify-end gap-2 group">
-                                <div className="flex justify-center"><span className="text-xs font-bold text-green-600 bg-green-100 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">{s.local}</span></div>
-                                <div style={{ height: `${s.total ? (s.local / s.total) * 100 : 0}%`, minHeight: '4px' }} className="bg-green-400 rounded-t-lg w-full mx-auto opacity-80 hover:opacity-100 transition-all"></div>
-                                <span className="text-[10px] font-bold text-center text-gray-500 uppercase">Ville</span>
+                        <div className="space-y-3">
+                            {/* En ville */}
+                            <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🏙️</span>
+                                        <span className="font-bold text-green-900">En ville</span>
+                                    </div>
+                                    <span className="font-black text-green-900 text-xl">{s.local}</span>
+                                </div>
+                                <div className="flex gap-2 text-xs">
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">✓ {s.localProgrammed} programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">⏳ {s.localPending} pas programmés</span>
+                                </div>
                             </div>
-                            <div className="flex-1 flex flex-col justify-end gap-2 group">
-                                <div className="flex justify-center"><span className="text-xs font-bold text-yellow-600 bg-yellow-100 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">{s.nearby}</span></div>
-                                <div style={{ height: `${s.total ? (s.nearby / s.total) * 100 : 0}%`, minHeight: '4px' }} className="bg-yellow-400 rounded-t-lg w-full mx-auto opacity-80 hover:opacity-100 transition-all"></div>
-                                <span className="text-[10px] font-bold text-center text-gray-500 uppercase">Proche</span>
+
+                            {/* Un peu loin */}
+                            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">🚗</span>
+                                        <span className="font-bold text-yellow-900">Un peu loin</span>
+                                    </div>
+                                    <span className="font-black text-yellow-900 text-xl">{s.nearby}</span>
+                                </div>
+                                <div className="flex gap-2 text-xs">
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">✓ {s.nearbyProgrammed} programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">⏳ {s.nearbyPending} pas programmés</span>
+                                </div>
                             </div>
-                            <div className="flex-1 flex flex-col justify-end gap-2 group">
-                                <div className="flex justify-center"><span className="text-xs font-bold text-orange-600 bg-orange-100 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">{s.far}</span></div>
-                                <div style={{ height: `${s.total ? (s.far / s.total) * 100 : 0}%`, minHeight: '4px' }} className="bg-orange-400 rounded-t-lg w-full mx-auto opacity-80 hover:opacity-100 transition-all"></div>
-                                <span className="text-[10px] font-bold text-center text-gray-500 uppercase">Loin</span>
+
+                            {/* Loin */}
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">✈️</span>
+                                        <span className="font-bold text-red-900">Loin</span>
+                                    </div>
+                                    <span className="font-black text-red-900 text-xl">{s.far}</span>
+                                </div>
+                                <div className="flex gap-2 text-xs">
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">✓ {s.farProgrammed} programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">⏳ {s.farPending} pas programmés</span>
+                                </div>
                             </div>
+
+                            {/* Non précisé */}
+                            {s.unspecified > 0 && (
+                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">❓</span>
+                                            <span className="font-bold text-gray-900">Non précisé</span>
+                                        </div>
+                                        <span className="font-black text-gray-900 text-xl">{s.unspecified}</span>
+                                    </div>
+                                    <div className="flex gap-2 text-xs">
+                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">✓ {s.unspecifiedProgrammed} programmés</span>
+                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">⏳ {s.unspecifiedPending} pas programmés</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
-            </div>
+                {/* RECENT PATIENTS */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div className="p-6 border-b border-gray-50 flex justify-between items-center">
+                        <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                            <span className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Icons.Clock /></span>
+                            Derniers Inscrits
+                        </h3>
+                    </div>
+                    <div className="p-4">
+                        {s.recentRecords.length > 0 ? (
+                            <div className="space-y-3">
+                                {s.recentRecords.map((r, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group"
+                                        onClick={() => onEdit(r)}
+                                    >
+                                        {/* Dossier Number */}
+                                        <div className="flex-shrink-0 w-16">
+                                            <div className="text-xs font-bold text-gray-400 uppercase mb-1">Dossier</div>
+                                            <div className="font-black text-slate-800 text-sm">{r.dossier_number || '-'}</div>
+                                        </div>
 
-            {/* RECENT PATIENTS */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="p-6 border-b border-gray-50 flex justify-between items-center">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <span className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Icons.Clock /></span>
-                        Derniers Inscrits
-                    </h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-500">
-                        <thead className="bg-gray-50/50 uppercase font-bold text-gray-400 text-xs">
-                            <tr>
-                                <th className="px-6 py-3">Dossier</th>
-                                <th className="px-6 py-3">Patient</th>
-                                <th className="px-6 py-3">Genre / Age</th>
-                                <th className="px-6 py-3">Ville</th>
-                                <th className="px-6 py-3">Consultation</th>
-                                <th className="px-6 py-3">Statut</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                            {s.recentRecords.length > 0 ? (
-                                s.recentRecords.map((r, i) => (
-                                    <tr key={i} className="hover:bg-indigo-50/30 transition-colors cursor-pointer" onClick={() => onEdit(r)}>
-                                        <td className="px-6 py-3 font-black text-slate-800">{r.dossier_number || '-'}</td>
-                                        <td className="px-6 py-3 font-medium text-slate-800">{r.last_name} {r.first_name}</td>
-                                        <td className="px-6 py-3">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mr-2 ${r.gender === 'M' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
-                                                {r.gender}
-                                            </span>
-                                            {r.age}
-                                        </td>
-                                        <td className="px-6 py-3 capitalize">{r.address ? r.address.split(' ').slice(0, 2).join(' ') : 'N/A'}</td>
-                                        <td className="px-6 py-3 truncate max-w-[200px]" title={r.clinical_diagnosis}>{r.clinical_diagnosis || '-'}</td>
-                                        <td className="px-6 py-3">
+                                        {/* Patient Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-slate-800 truncate">
+                                                    {r.last_name} {r.first_name}
+                                                </span>
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                                                    {r.gender}
+                                                </span>
+                                                <span className="text-xs text-gray-500">{r.age} ans</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                <span className="flex items-center gap-1">
+                                                    <span>📍</span>
+                                                    <span className="capitalize">{r.address ? r.address.split(' ').slice(0, 2).join(' ') : 'N/A'}</span>
+                                                </span>
+                                                {r.clinical_diagnosis && (
+                                                    <span className="flex items-center gap-1 truncate max-w-[300px]" title={r.clinical_diagnosis}>
+                                                        <span>🩺</span>
+                                                        <span className="truncate">{r.clinical_diagnosis}</span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="flex-shrink-0">
                                             {r.program_mission ? (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Programmé
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Pas Programmé
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Pas Programmé
                                                 </span>
                                             )}
-                                        </td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400 italic">
-                                        Aucune donnée récente
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="py-12 text-center text-gray-400 italic">
+                                Aucune donnée récente
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

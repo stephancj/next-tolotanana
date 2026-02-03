@@ -43,6 +43,16 @@ export interface MedicalRecord {
     program_mission: number;
     planning_day?: string; // 'Lundi', 'Mardi', etc.
 
+    // Pre-Op Check
+    pre_op_checked?: number; // 0 or 1
+    pre_op_checked_at?: string;
+
+    // Operation Details
+    block_entry_time?: string;
+    block_exit_time?: string;
+    intervention_details?: string;
+    diagnosis_category?: string;
+
     // History (stored as boolean/number 0 or 1)
     history_diabetes: number;
     history_hypertension: number;
@@ -64,9 +74,39 @@ export interface MedicalRecord {
     sync_status?: 'synced' | 'pending_update' | 'pending_delete';
 }
 
+export interface Surgeon {
+    id?: number;
+    public_id: string;
+    name: string;
+    specialty?: string;
+    email?: string;
+    phone?: string;
+    is_active: number;
+    created_at: string;
+    updated_at: string;
+    deleted: number;
+    sync_status?: 'synced' | 'pending_update' | 'pending_delete';
+}
+
+export interface EditionSurgeon {
+    edition_id: number;
+    surgeon_id: number;
+}
+
+export interface RecordSurgeon {
+    id?: number;
+    medical_record_id: number;
+    surgeon_id: number;
+    role?: string;
+    sync_status?: 'synced' | 'pending_update' | 'pending_delete';
+}
+
 export class TolotananaDB extends Dexie {
     editions!: Table<Edition>;
     medical_records!: Table<MedicalRecord>;
+    surgeons!: Table<Surgeon>;
+    edition_surgeons!: Table<EditionSurgeon>;
+    record_surgeons!: Table<RecordSurgeon>;
 
     constructor() {
         super('tolotananaDB');
@@ -98,6 +138,13 @@ export class TolotananaDB extends Dexie {
         }).upgrade(async () => {
             // Version 3: Just creating the table, no default data.
             // Editions will be synced from server.
+        });
+
+        // Version 4: Surgeons and Operation Details
+        this.version(4).stores({
+            surgeons: '++id, public_id, name, is_active, sync_status, deleted',
+            edition_surgeons: '[edition_id+surgeon_id], edition_id, surgeon_id',
+            record_surgeons: '++id, medical_record_id, surgeon_id, sync_status',
         });
     }
 }

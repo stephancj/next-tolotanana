@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { calculateAge } from '@/lib/age-utils';
 import { MedicalRecord, Edition } from '@/lib/client-db';
 import { useSync } from '../hooks/useSync';
@@ -112,6 +113,10 @@ interface FormState {
     anesthesia_type: string;
     anesthesia_observation: string;
     distance: string;
+    block_entry_time: string;
+    block_exit_time: string;
+    intervention_details: string;
+    diagnosis_category: string;
     [key: string]: string | number | boolean; // Index signature for dynamic access
 }
 
@@ -151,7 +156,11 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
         asa_score: '',
         anesthesia_type: '',
         anesthesia_observation: '',
-        distance: 'non précisé'
+        distance: 'non précisé',
+        block_entry_time: '',
+        block_exit_time: '',
+        intervention_details: '',
+        diagnosis_category: '',
     };
 
     const [formData, setFormData] = useState<FormState>(initialData ? {
@@ -165,7 +174,13 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
         history_asthma: !!initialData.history_asthma,
         history_cardiopathy: !!initialData.history_cardiopathy,
         history_none: !!initialData.history_none,
+        block_entry_time: initialData.block_entry_time || '',
+        block_exit_time: initialData.block_exit_time || '',
+        intervention_details: initialData.intervention_details || '',
+        diagnosis_category: initialData.diagnosis_category || '',
     } : defaultState);
+
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target;
@@ -259,13 +274,16 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
             };
 
             const dbModule = await import('@/lib/client-db');
-            if (initialData && initialData.id) {
-                await dbModule.db.medical_records.put({ ...recordToSave, id: initialData.id });
+            let savedId = initialData?.id;
+
+            if (savedId) {
+                await dbModule.db.medical_records.put({ ...recordToSave, id: savedId });
                 alert('Fiche mise à jour avec succès');
             } else {
-                await dbModule.db.medical_records.add(recordToSave);
+                savedId = await dbModule.db.medical_records.add(recordToSave) as number;
                 alert('Fiche enregistrée avec succès (Mode Offline)');
             }
+
 
             if (onSuccess) onSuccess();
 
@@ -296,7 +314,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                     <div>
                         <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Fandidiana Maimaimpoana</h2>
                         <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-md" />
+                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain drop-shadow-md" />
                             Fiche <span className="text-indigo-600">Médicale</span>
                         </h1>
                     </div>
@@ -538,6 +556,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                             </div>
                         </div>
                     </div>
+
 
                     {/* PRE-ANESTHESIA */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
