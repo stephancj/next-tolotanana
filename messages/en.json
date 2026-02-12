@@ -57,6 +57,34 @@
       "programmed": "Scheduled",
       "notProgrammed": "Not Scheduled"
     },
+    "blockPerformance": {
+      "title": "OR Performance",
+      "realOps": "Completed Operations",
+      "ofProgrammed": "of {count} scheduled",
+      "avgDuration": "Avg Duration",
+      "perIntervention": "per intervention",
+      "minDuration": "Min Duration",
+      "maxDuration": "Max Duration"
+    },
+    "clinicalStats": {
+      "title": "Clinical Analysis",
+      "anesthesia": {
+        "title": "Anesthesia Types",
+        "locoregional": "Regional",
+        "general": "General",
+        "local": "Local",
+        "sedation": "Sedation",
+        "undefined": "Undefined"
+      },
+      "diagnostics": {
+        "title": "Diagnosis Categories",
+        "other": "Other"
+      },
+      "interventions": {
+        "title": "Intervention Types",
+        "top5": "Top 5 Interventions"
+      }
+    },
     "buttons": {
       "team": "Team",
       "planning": "Planning",

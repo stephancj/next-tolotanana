@@ -2,10 +2,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
 import { medicalRecords } from '@/lib/schema';
-import { desc, eq } from 'drizzle-orm';
-
-// Force dynamic rendering (server-side only)
-export const dynamic = 'force-dynamic';
+import { desc, eq, inArray } from 'drizzle-orm';
 
 export async function GET() {
     try {
@@ -17,55 +14,17 @@ export async function GET() {
     }
 }
 
-export async function POST(req: Request) {
-    try {
-        const body = await req.json();
-
-        // Ensure boolean fields are boolean
-        const sanitizeBoolean = (val: any) => val === true || val === 1 || val === '1';
-
-        const recordData = {
-            ...body,
-            program_mission: sanitizeBoolean(body.program_mission),
-            history_diabetes: sanitizeBoolean(body.history_diabetes),
-            history_hypertension: sanitizeBoolean(body.history_hypertension),
-            history_asthma: sanitizeBoolean(body.history_asthma),
-            history_cardiopathy: sanitizeBoolean(body.history_cardiopathy),
-            history_none: sanitizeBoolean(body.history_none),
-            // Ensure numeric fields are numbers
-            weight: body.weight ? String(body.weight) : '',
-            height: body.height ? String(body.height) : '',
-            bmi: body.bmi ? String(body.bmi) : '',
-            temperature: body.temperature ? String(body.temperature) : '',
-            heart_rate: body.heart_rate ? String(body.heart_rate) : '',
-            respiratory_rate: body.respiratory_rate ? String(body.respiratory_rate) : '',
-            spo2: body.spo2 ? String(body.spo2) : '',
-            asa_score: body.asa_score ? String(body.asa_score) : '',
-            deleted: false,
-            created_at: new Date(),
-            updated_at: new Date()
-        };
-
-        const result = await db.insert(medicalRecords).values(recordData).returning();
-
-        return NextResponse.json({ id: result[0].id, success: true });
-    } catch (error) {
-        console.error('Error creating record:', error);
-        return NextResponse.json({ error: 'Failed to create record' }, { status: 500 });
-    }
-}
-
 export async function PATCH(req: Request) {
     try {
         const body = await req.json();
-        const { id, ...updates } = body;
+        const { id, ids, ...updates } = body;
 
-        if (!id) {
-            return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
+        if (!id && (!ids || !Array.isArray(ids) || ids.length === 0)) {
+            return NextResponse.json({ error: 'Record ID(s) required' }, { status: 400 });
         }
 
         // --- SANITIZAITON ---
-        const sanitizedUpdates: any = { ...updates };
+        const sanitizedUpdates: Record<string, string | number | boolean | Date | null> = { ...updates };
         const dateFields = ['pre_op_call_at', 'pre_op_checked_at'];
 
         // 1. Sanitize Date Fields
@@ -84,12 +43,23 @@ export async function PATCH(req: Request) {
         // 3. Always update updated_at
         sanitizedUpdates.updated_at = new Date();
 
-        const result = await db.update(medicalRecords)
-            .set(sanitizedUpdates)
-            .where(eq(medicalRecords.id, id))
-            .returning();
+        let result;
 
-        return NextResponse.json({ success: true, record: result[0] });
+        if (ids && Array.isArray(ids) && ids.length > 0) {
+            // Bulk Update
+            result = await db.update(medicalRecords)
+                .set(sanitizedUpdates)
+                .where(inArray(medicalRecords.id, ids))
+                .returning();
+        } else {
+            // Single Update
+            result = await db.update(medicalRecords)
+                .set(sanitizedUpdates)
+                .where(eq(medicalRecords.id, id))
+                .returning();
+        }
+
+        return NextResponse.json({ success: true, count: result.length, records: result });
 
     } catch (error) {
         console.error('Error updating record:', error);

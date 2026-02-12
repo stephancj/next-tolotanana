@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { MedicalRecord, Edition, Surgeon } from '@/lib/client-db';
 import { useTranslations } from '../providers/I18nProvider';
+import { Phone, ClipboardCheck, LogIn, Pill, LogOut, BedDouble, Home, Search, Calendar, Filter } from 'lucide-react';
 
 interface WorkflowManagerProps {
     currentEdition: Edition | null;
@@ -161,8 +162,19 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
         return Array.from(dates).sort();
     }, [neonRecords]);
 
-    // ... (existing handlers)
-
+    const formatTime = (timeString?: string | null) => {
+        if (!timeString) return '';
+        // If it's already a time string "HH:mm"
+        if (timeString.match(/^\d{2}:\d{2}$/)) return timeString;
+        try {
+            return new Date(timeString).toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch {
+            return timeString;
+        }
+    };
 
     const toggleSelection = (id: number) => {
         const newSet = new Set(selectedRecordIds);
@@ -187,7 +199,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
         setLoading(true);
 
         try {
-            const updates: Record<string, any> = {
+            const updates: Record<string, string | number | boolean | null> = {
                 updated_at: new Date().toISOString()
             };
 
@@ -209,19 +221,21 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 if (bulkDischargeTime) updates.discharge_time = bulkDischargeTime;
             }
 
-            // Apply updates to selected records via API
-            await Promise.all(Array.from(selectedRecordIds).map(async (id) => {
-                const res = await fetch('/api/records', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id, ...updates })
-                });
-                if (!res.ok) throw new Error(`Failed to update record ${id}`);
-            }));
+            // Apply updates to selected records via SINGLE API CALL
+            const res = await fetch('/api/records', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ids: Array.from(selectedRecordIds),
+                    ...updates
+                })
+            });
+
+            if (!res.ok) throw new Error('Failed to update records');
 
             // Handle Surgeon Bulk Update specifically
             if (activeTab === 'bloc' && bulkSurgeons.length > 0) {
-                // For each selected record, assign surgeons
+                // Note: Surgeon assignment API might need similar bulk update refactor later if performance is an issue
                 await Promise.all(Array.from(selectedRecordIds).map(async (id) => {
                     const res = await fetch('/api/record_surgeons', {
                         method: 'POST',
@@ -240,6 +254,12 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
             // Reset bulk fields
             setBulkPreOpCall(null);
             setBulkPreOpCheck(null);
+            setBulkBlockEntry('');
+            setBulkPharmacyStatus('');
+            setBulkSurgeons([]);
+            setBulkBlockExit('');
+            setBulkPostOpEntry('');
+            setBulkDischargeTime('');
 
             // Reload data
             await reloadData();
@@ -290,36 +310,45 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
                         {/* Filters & Search */}
                         <div className="flex flex-wrap gap-3">
-                            <input
-                                type="text"
-                                placeholder={t('searchPlaceholder')}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="flex-1 min-w-[200px] p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                            />
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder={t('searchPlaceholder')}
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all shadow-sm"
+                                />
+                            </div>
 
-                            <select
-                                value={filterDate}
-                                onChange={(e) => setFilterDate(e.target.value)}
-                                className="p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700"
-                            >
-                                <option value="">📅 {t('filters.allDates') || 'Toutes les dates'}</option>
-                                {availableDates.map(date => (
-                                    <option key={date as string} value={date as string}>{date as string}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                                <select
+                                    value={filterDate}
+                                    onChange={(e) => setFilterDate(e.target.value)}
+                                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700 cursor-pointer shadow-sm appearance-none"
+                                >
+                                    <option value="">{t('filters.allDates')}</option>
+                                    {availableDates.map(date => (
+                                        <option key={date as string} value={date as string}>{date as string}</option>
+                                    ))}
+                                </select>
+                            </div>
 
-                            <select
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                                className="p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700"
-                            >
-                                <option value="all">🔍 {t('filters.allStatuses') || 'Tous les statuts'}</option>
-                                <option value="present_pending">🏥 Présent (En attente)</option>
-                                <option value="in_block">😷 Au Bloc</option>
-                                <option value="post_op">🛏️ En Post-Op</option>
-                                <option value="discharged">✅ Sortie</option>
-                            </select>
+                            <div className="relative">
+                                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                                <select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700 cursor-pointer shadow-sm appearance-none"
+                                >
+                                    <option value="all">{t('filters.allStatuses')}</option>
+                                    <option value="present_pending">{t('filters.presentPending')}</option>
+                                    <option value="in_block">{t('filters.inBlock')}</option>
+                                    <option value="post_op">{t('filters.postOp')}</option>
+                                    <option value="discharged">{t('filters.discharged')}</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -377,22 +406,63 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                                 </div>
 
                                 {/* Status Indicators based on Tab */}
-                                <div className="text-right">
-                                    {activeTab === 'pre-op' && (
-                                        <div className="flex flex-col items-end gap-1">
-                                            {record.pre_op_call === 1 && <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">{t('status.callOk')}</span>}
-                                            {record.pre_op_checked === 1 && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{t('status.presenceOk')}</span>}
-                                            {record.block_entry_time && <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t('status.entry', { time: record.block_entry_time })}</span>}
+                                <div className="text-right flex flex-col items-end gap-1.5">
+                                    {/* Pre-Op Statuses */}
+                                    <div className="flex items-center gap-1.5">
+                                        {record.pre_op_call === 1 && (
+                                            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100 flex items-center gap-1.5 shadow-sm">
+                                                <Phone size={14} />
+                                                {record.pre_op_call_at ? t('status.preOpCallTime', { time: formatTime(record.pre_op_call_at) }) : t('status.callOk')}
+                                            </span>
+                                        )}
+                                        {(!!record.pre_op_checked) && (
+                                            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5 shadow-sm">
+                                                <ClipboardCheck size={14} />
+                                                {record.pre_op_checked_at ? t('status.preOpCheckedTime', { time: formatTime(record.pre_op_checked_at) }) : t('status.presenceOk')}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Bloc Statuses - Grouped Entry/Exit */}
+                                    {(record.block_entry_time || record.block_exit_time) && (
+                                        <div className="flex items-center gap-1.5">
+                                            {record.block_entry_time && (
+                                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 flex items-center gap-1.5 shadow-sm">
+                                                    <LogIn size={14} />
+                                                    {t('status.entry', { time: formatTime(record.block_entry_time) })}
+                                                </span>
+                                            )}
+                                            {record.block_exit_time && (
+                                                <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 flex items-center gap-1.5 shadow-sm">
+                                                    <LogOut size={14} />
+                                                    {t('status.exit', { time: formatTime(record.block_exit_time) })}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
-                                    {activeTab === 'bloc' && (
-                                        <div className="flex flex-col items-end gap-1">
-                                            {record.pharmacy_status === 'retrieved' && <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{t('status.pharmaOk')}</span>}
-                                        </div>
+
+                                    {record.pharmacy_status === 'retrieved' && (
+                                        <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100 flex items-center gap-1.5 shadow-sm">
+                                            <Pill size={14} />
+                                            {t('status.pharmaOk')}
+                                        </span>
                                     )}
-                                    {activeTab === 'post-op' && (
-                                        <div className="flex flex-col items-end gap-1">
-                                            {record.discharge_time && <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{t('status.exit', { time: record.discharge_time })}</span>}
+
+                                    {/* Post-Op Statuses - Grouped Entry/Discharge */}
+                                    {(record.post_op_entry_time || record.discharge_time) && (
+                                        <div className="flex items-center gap-1.5">
+                                            {record.post_op_entry_time && (
+                                                <span className="text-xs font-bold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 flex items-center gap-1.5 shadow-sm">
+                                                    <BedDouble size={14} />
+                                                    {t('status.postOpEntry', { time: formatTime(record.post_op_entry_time) })}
+                                                </span>
+                                            )}
+                                            {record.discharge_time && (
+                                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 flex items-center gap-1.5 shadow-sm">
+                                                    <Home size={14} />
+                                                    {t('status.discharge', { time: formatTime(record.discharge_time) })}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
                                 </div>

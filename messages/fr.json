@@ -57,6 +57,34 @@
       "programmed": "Programmé",
       "notProgrammed": "Pas Programmé"
     },
+    "blockPerformance": {
+      "title": "Performance du Bloc",
+      "realOps": "Opérations Réalisées",
+      "ofProgrammed": "sur {count} programmés",
+      "avgDuration": "Durée Moyenne",
+      "perIntervention": "par intervention",
+      "minDuration": "Durée Min",
+      "maxDuration": "Durée Max"
+    },
+    "clinicalStats": {
+      "title": "Analyses Cliniques",
+      "anesthesia": {
+        "title": "Types d'Anesthésie",
+        "locoregional": "Locorégionale",
+        "general": "Générale",
+        "local": "Locale",
+        "sedation": "Sédation",
+        "undefined": "Non défini"
+      },
+      "diagnostics": {
+        "title": "Catégories de Diagnostics",
+        "other": "Autres"
+      },
+      "interventions": {
+        "title": "Types d'Interventions",
+        "top5": "Top 5 Interventions"
+      }
+    },
     "buttons": {
       "team": "Équipe",
       "planning": "Planning",
@@ -338,9 +366,13 @@
     "status": {
       "callOk": "Appel OK",
       "presenceOk": "Présence OK",
+      "preOpCallTime": "Appel: {time}",
+      "preOpCheckedTime": "Présence: {time}",
       "entry": "Entrée: {time}",
       "pharmaOk": "Pharma OK",
       "exit": "Sortie: {time}",
+      "postOpEntry": "Post-Op: {time}",
+      "discharge": "Départ: {time}",
       "undefinedIntervention": "Intervention non définie"
     },
     "bulk": {
@@ -369,6 +401,14 @@
     "alerts": {
       "success": "✅ Mise à jour effectuée pour {count} patient(s)",
       "error": "Erreur lors de la mise à jour"
+    },
+    "filters": {
+      "allDates": "Toutes les dates",
+      "allStatuses": "Tous les statuts",
+      "presentPending": "Présent (En attente)",
+      "inBlock": "Au Bloc",
+      "postOp": "En Post-Op",
+      "discharged": "Sortie"
     }
   },
   "enums": {

@@ -7,6 +7,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslations, useLocale } from '../providers/I18nProvider';
 import { translateDay, translateDistance } from '@/lib/enum-translations';
 import { Locale } from '@/lib/i18n-config';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 // Icons
 const Icons = {
@@ -29,7 +30,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
     const [refreshing, setRefreshing] = useState(false);
     const t = useTranslations('dashboard');
     const tCommon = useTranslations('common');
-    const tEnums = useTranslations('enums');
+
     const locale = useLocale() as Locale;
 
     const fetchData = useCallback(async () => {
@@ -123,6 +124,49 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
         const today = new Date().toISOString().split('T')[0];
         const createdToday = records.filter(r => r.created_at && String(r.created_at).startsWith(today)).length;
 
+        // Operation Stats
+        const durations = records
+            .filter(r => r.block_entry_time && r.block_exit_time)
+            .map(r => {
+                // Handle both ISO strings and "HH:mm"
+                const getDate = (t: string) => {
+                    if (t.includes('T')) return new Date(t);
+                    return new Date(`1970-01-01T${t}`);
+                };
+                const start = getDate(r.block_entry_time!);
+                const end = getDate(r.block_exit_time!);
+                return (end.getTime() - start.getTime()) / (1000 * 60); // minutes
+            })
+            .filter(d => d > 0);
+
+        const realOperations = durations.length;
+        const minDuration = realOperations > 0 ? Math.min(...durations) : 0;
+        const maxDuration = realOperations > 0 ? Math.max(...durations) : 0;
+        const avgDuration = realOperations > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / realOperations) : 0;
+
+        // Clinical Stats (Operated Only)
+        const anesthesiaStats = records
+            .filter(r => r.block_entry_time && r.block_exit_time)
+            .reduce((acc, r) => {
+                // Normalize keys for translation matching if possible, or keep raw
+                const type = r.anesthesia_type || 'undefined';
+                // Simple normalization for common types to match translation keys if needed
+                // For now, we'll use the raw value and handle display mapping in the UI
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>);
+
+        const diagnosticStats = records
+            .filter(r => r.block_entry_time && r.block_exit_time && r.diagnosis_category)
+            .reduce((acc, r) => {
+                const cat = r.diagnosis_category!;
+                acc[cat] = (acc[cat] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>);
+
+
+
+
         // Recent Records (Last 5)
         const recentRecords = [...records]
             .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
@@ -136,7 +180,9 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
             nearby, nearbyProgrammed, nearbyPending,
             far, farProgrammed, farPending,
             unspecified, unspecifiedProgrammed, unspecifiedPending,
-            createdToday, recentRecords
+            createdToday, recentRecords,
+            realOperations, minDuration, maxDuration, avgDuration,
+            anesthesiaStats, diagnosticStats
         };
     }, [records, loading]);
 
@@ -153,8 +199,15 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
         nearby: 0, nearbyProgrammed: 0, nearbyPending: 0,
         far: 0, farProgrammed: 0, farPending: 0,
         unspecified: 0, unspecifiedProgrammed: 0, unspecifiedPending: 0,
-        createdToday: 0, recentRecords: []
+        createdToday: 0, recentRecords: [],
+        realOperations: 0, minDuration: 0, maxDuration: 0, avgDuration: 0,
+        anesthesiaStats: {} as Record<string, number>,
+        diagnosticStats: {} as Record<string, number>
     };
+
+    const anesthesiaData = Object.entries(s.anesthesiaStats).map(([name, value]) => ({ name, value }));
+    const diagnosticData = Object.entries(s.diagnosticStats).map(([name, value]) => ({ name, value }));
+
 
     return (
         <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 pb-24 text-slate-800 animate-fadeIn relative">
@@ -219,6 +272,51 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                 </div>
             </div>
 
+            {/* BLOCK PERFORMANCE */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8">
+                <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="p-2 bg-violet-50 text-violet-600 rounded-lg">⏱️</span>
+                    {t('blockPerformance.title')}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {/* Real Operations Count */}
+                    <div className="p-4 bg-violet-50 rounded-xl border border-violet-100">
+                        <div className="text-sm font-bold text-violet-800 uppercase mb-1">{t('blockPerformance.realOps')}</div>
+                        <div className="text-3xl font-black text-violet-900">{s.realOperations}</div>
+                        <div className="text-xs font-medium text-violet-600 mt-2">
+                            {t('blockPerformance.ofProgrammed', { count: s.programmed })} ({s.programmed > 0 ? Math.round((s.realOperations / s.programmed) * 100) : 0}%)
+                        </div>
+                    </div>
+
+                    {/* Avg Duration */}
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="text-sm font-bold text-blue-800 uppercase mb-1">{t('blockPerformance.avgDuration')}</div>
+                        <div className="text-3xl font-black text-blue-900">
+                            {Math.floor(s.avgDuration / 60)}h {s.avgDuration % 60}m
+                        </div>
+                        <div className="text-xs font-medium text-blue-600 mt-2">
+                            {t('blockPerformance.perIntervention')}
+                        </div>
+                    </div>
+
+                    {/* Min Duration */}
+                    <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <div className="text-sm font-bold text-emerald-800 uppercase mb-1">{t('blockPerformance.minDuration')}</div>
+                        <div className="text-3xl font-black text-emerald-900">
+                            {Math.floor(s.minDuration / 60)}h {s.minDuration % 60}m
+                        </div>
+                    </div>
+
+                    {/* Max Duration */}
+                    <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
+                        <div className="text-sm font-bold text-orange-800 uppercase mb-1">{t('blockPerformance.maxDuration')}</div>
+                        <div className="text-3xl font-black text-orange-900">
+                            {Math.floor(s.maxDuration / 60)}h {s.maxDuration % 60}m
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* KPI CARDS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div
@@ -277,11 +375,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                 </div>
             </div>
 
-            {/* CHARTS GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-
+            {/* PLANNING & RECENT */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 {/* PLANNING SEMAINE */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                             <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Icons.Calendar /></span>
@@ -311,135 +408,15 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    {/* REPARTITION GENRE */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-                            <span className="p-2 bg-pink-50 text-pink-600 rounded-lg"><Icons.Users /></span>
-                            {t('gender.title')}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Hommes */}
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border-2 border-blue-200">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-4xl">👨</span>
-                                    <span className="font-black text-blue-900 text-3xl">{s.male}</span>
-                                </div>
-                                <div className="text-sm font-bold text-blue-800 mb-3">{t('gender.men')}</div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-blue-700">✓ {t('gender.programmed')}</span>
-                                        <span className="font-bold text-blue-900">{s.maleProgrammed}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-blue-700">⏳ {t('gender.notProgrammed')}</span>
-                                        <span className="font-bold text-blue-900">{s.malePending}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Femmes */}
-                            <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-5 rounded-xl border-2 border-pink-200">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="text-4xl">👩</span>
-                                    <span className="font-black text-pink-900 text-3xl">{s.female}</span>
-                                </div>
-                                <div className="text-sm font-bold text-pink-800 mb-3">{t('gender.women')}</div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-pink-700">✓ {t('gender.programmedFemale')}</span>
-                                        <span className="font-bold text-pink-900">{s.femaleProgrammed}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-pink-700">⏳ {t('gender.notProgrammedFemale')}</span>
-                                        <span className="font-bold text-pink-900">{s.femalePending}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* PROVENANCE */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Icons.Chart /></span>
-                            {t('origin.title')}
-                        </h3>
-                        <div className="space-y-3">
-                            {/* En ville */}
-                            <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xl">🏙️</span>
-                                        <span className="font-bold text-green-900">{translateDistance('en ville', locale)}</span>
-                                    </div>
-                                    <span className="font-black text-green-900 text-xl">{s.local}</span>
-                                </div>
-                                <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">✓ {s.localProgrammed} {t('gender.programmed').toLowerCase()}</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">⏳ {s.localPending} {t('gender.notProgrammed').toLowerCase()}</span>
-                                </div>
-                            </div>
-
-                            {/* Un peu loin */}
-                            <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xl">🚗</span>
-                                        <span className="font-bold text-yellow-900">{translateDistance('un peu loin', locale)}</span>
-                                    </div>
-                                    <span className="font-black text-yellow-900 text-xl">{s.nearby}</span>
-                                </div>
-                                <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">✓ {s.nearbyProgrammed} {t('gender.programmed').toLowerCase()}</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">⏳ {s.nearbyPending} {t('gender.notProgrammed').toLowerCase()}</span>
-                                </div>
-                            </div>
-
-                            {/* Loin */}
-                            <div className="bg-red-50 p-4 rounded-xl border border-red-200">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xl">✈️</span>
-                                        <span className="font-bold text-red-900">{translateDistance('loin', locale)}</span>
-                                    </div>
-                                    <span className="font-black text-red-900 text-xl">{s.far}</span>
-                                </div>
-                                <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">✓ {s.farProgrammed} {t('gender.programmed').toLowerCase()}</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">⏳ {s.farPending} {t('gender.notProgrammed').toLowerCase()}</span>
-                                </div>
-                            </div>
-
-                            {/* Non précisé */}
-                            {s.unspecified > 0 && (
-                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xl">❓</span>
-                                            <span className="font-bold text-gray-900">{translateDistance('non précisé', locale)}</span>
-                                        </div>
-                                        <span className="font-black text-gray-900 text-xl">{s.unspecified}</span>
-                                    </div>
-                                    <div className="flex gap-2 text-xs">
-                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">✓ {s.unspecifiedProgrammed} {t('gender.programmed').toLowerCase()}</span>
-                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">⏳ {s.unspecifiedPending} {t('gender.notProgrammed').toLowerCase()}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
                 {/* RECENT PATIENTS */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                     <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                             <span className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Icons.Clock /></span>
                             {t('recentPatients.title')}
                         </h3>
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 flex-1 overflow-y-auto max-h-[400px]">
                         {s.recentRecords.length > 0 ? (
                             <div className="space-y-3">
                                 {s.recentRecords.map((r, i) => (
@@ -448,48 +425,20 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                         className="flex items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all cursor-pointer group"
                                         onClick={() => onEdit(r)}
                                     >
-                                        {/* Dossier Number */}
-                                        <div className="flex-shrink-0 w-16">
-                                            <div className="text-xs font-bold text-gray-400 uppercase mb-1">{t('recentPatients.dossier')}</div>
+                                        <div className="flex-shrink-0 w-12">
+                                            <div className="text-[10px] font-bold text-gray-400 uppercase mb-0.5">{t('recentPatients.dossier')}</div>
                                             <div className="font-black text-slate-800 text-sm">{r.dossier_number || '-'}</div>
                                         </div>
-
-                                        {/* Patient Info */}
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-bold text-slate-800 truncate">
-                                                    {r.last_name} {r.first_name}
-                                                </span>
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                                            <div className="font-bold text-slate-800 truncate text-sm">
+                                                {r.last_name} {r.first_name}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
                                                     {r.gender}
                                                 </span>
-                                                <span className="text-xs text-gray-500">{r.age} {t('form.identity.ageMalagasy').split(' ')[0].replace('Âge', 'ans')}</span>
+                                                <span className="truncate max-w-[100px]">{r.clinical_diagnosis || '-'}</span>
                                             </div>
-                                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                                                <span className="flex items-center gap-1">
-                                                    <span>📍</span>
-                                                    <span className="capitalize">{r.address ? r.address.split(' ').slice(0, 2).join(' ') : 'N/A'}</span>
-                                                </span>
-                                                {r.clinical_diagnosis && (
-                                                    <span className="flex items-center gap-1 truncate max-w-[300px]" title={r.clinical_diagnosis}>
-                                                        <span>🩺</span>
-                                                        <span className="truncate">{r.clinical_diagnosis}</span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Status */}
-                                        <div className="flex-shrink-0">
-                                            {r.program_mission ? (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {t('recentPatients.programmed')}
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> {t('recentPatients.notProgrammed')}
-                                                </span>
-                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -502,6 +451,180 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     </div>
                 </div>
             </div>
+
+            {/* DEMOGRAPHICS GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                {/* REPARTITION GENRE */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                        <span className="p-2 bg-pink-50 text-pink-600 rounded-lg"><Icons.Users /></span>
+                        {t('gender.title')}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Hommes */}
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl border-2 border-blue-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-4xl">👨</span>
+                                <span className="font-black text-blue-900 text-3xl">{s.male}</span>
+                            </div>
+                            <div className="text-sm font-bold text-blue-800 mb-3">{t('gender.men')}</div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                    <span className="text-xs font-medium text-blue-700">✓ {t('gender.programmed')}</span>
+                                    <span className="font-bold text-blue-900">{s.maleProgrammed}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                    <span className="text-xs font-medium text-blue-700">⏳ {t('gender.notProgrammed')}</span>
+                                    <span className="font-bold text-blue-900">{s.malePending}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Femmes */}
+                        <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-5 rounded-xl border-2 border-pink-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-4xl">👩</span>
+                                <span className="font-black text-pink-900 text-3xl">{s.female}</span>
+                            </div>
+                            <div className="text-sm font-bold text-pink-800 mb-3">{t('gender.women')}</div>
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                    <span className="text-xs font-medium text-pink-700">✓ {t('gender.programmedFemale')}</span>
+                                    <span className="font-bold text-pink-900">{s.femaleProgrammed}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
+                                    <span className="text-xs font-medium text-pink-700">⏳ {t('gender.notProgrammedFemale')}</span>
+                                    <span className="font-bold text-pink-900">{s.femalePending}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* PROVENANCE */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                        <span className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Icons.Chart /></span>
+                        {t('origin.title')}
+                    </h3>
+                    <div className="space-y-3">
+                        {/* En ville */}
+                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">🏙️</span>
+                                    <span className="font-bold text-green-900">{translateDistance('en ville', locale)}</span>
+                                </div>
+                                <span className="font-black text-green-900 text-xl">{s.local}</span>
+                            </div>
+                            <div className="flex gap-2 text-xs">
+                                <span className="bg-white px-2 py-1 rounded font-medium text-green-700">✓ {s.localProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                <span className="bg-white px-2 py-1 rounded font-medium text-green-700">⏳ {s.localPending} {t('gender.notProgrammed').toLowerCase()}</span>
+                            </div>
+                        </div>
+
+                        {/* Un peu loin */}
+                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">🚗</span>
+                                    <span className="font-bold text-yellow-900">{translateDistance('un peu loin', locale)}</span>
+                                </div>
+                                <span className="font-black text-yellow-900 text-xl">{s.nearby}</span>
+                            </div>
+                            <div className="flex gap-2 text-xs">
+                                <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">✓ {s.nearbyProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">⏳ {s.nearbyPending} {t('gender.notProgrammed').toLowerCase()}</span>
+                            </div>
+                        </div>
+
+                        {/* Loin */}
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">✈️</span>
+                                    <span className="font-bold text-red-900">{translateDistance('loin', locale)}</span>
+                                </div>
+                                <span className="font-black text-red-900 text-xl">{s.far}</span>
+                            </div>
+                            <div className="flex gap-2 text-xs">
+                                <span className="bg-white px-2 py-1 rounded font-medium text-red-700">✓ {s.farProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                <span className="bg-white px-2 py-1 rounded font-medium text-red-700">⏳ {s.farPending} {t('gender.notProgrammed').toLowerCase()}</span>
+                            </div>
+                        </div>
+
+                        {/* Non précisé */}
+                        {s.unspecified > 0 && (
+                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">❓</span>
+                                        <span className="font-bold text-gray-900">{translateDistance('non précisé', locale)}</span>
+                                    </div>
+                                    <span className="font-black text-gray-900 text-xl">{s.unspecified}</span>
+                                </div>
+                                <div className="flex gap-2 text-xs">
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">✓ {s.unspecifiedProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">⏳ {s.unspecifiedPending} {t('gender.notProgrammed').toLowerCase()}</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* CLINICAL ANALYSIS */}
+            <div className="mb-8">
+                <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                    <span className="p-2 bg-pink-50 text-pink-600 rounded-lg">🔬</span>
+                    {t('clinicalStats.title')}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <PieChartCard title={t('clinicalStats.anesthesia.title')} data={anesthesiaData} />
+                    <PieChartCard title={t('clinicalStats.diagnostics.title')} data={diagnosticData} />
+                </div>
+            </div>
         </div>
     );
 }
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
+
+const PieChartCard = ({ title, data }: { title: string, data: { name: string, value: number }[] }) => {
+    if (data.length === 0) {
+        return (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center h-full min-h-[300px]">
+                <h3 className="font-bold text-lg text-slate-800 mb-4">{title}</h3>
+                <div className="text-gray-400 italic">Aucune donnée</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center h-full">
+            <h3 className="font-bold text-lg text-slate-800 mb-4">{title}</h3>
+            <div className="w-full h-64 flex-1 min-h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            paddingAngle={5}
+                            dataKey="value"
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+    );
+};

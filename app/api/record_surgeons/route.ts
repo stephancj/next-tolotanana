@@ -16,20 +16,18 @@ export async function POST(req: Request) {
         }
 
         // Transaction to replace surgeons
-        await db.transaction(async (tx) => {
-            // 1. Delete existing surgeons for this record
-            await tx.delete(recordSurgeons)
-                .where(eq(recordSurgeons.medical_record_id, medical_record_id));
+        // 1. Delete existing surgeons for this record
+        await db.delete(recordSurgeons)
+            .where(eq(recordSurgeons.medical_record_id, medical_record_id));
 
-            // 2. Insert new surgeons
-            if (surgeon_ids.length > 0) {
-                const values = surgeon_ids.map((id: number) => ({
-                    medical_record_id,
-                    surgeon_id: id
-                }));
-                await tx.insert(recordSurgeons).values(values);
-            }
-        });
+        // 2. Insert new surgeons
+        if (surgeon_ids.length > 0) {
+            const values = surgeon_ids.map((id: number) => ({
+                medical_record_id,
+                surgeon_id: id
+            }));
+            await db.insert(recordSurgeons).values(values);
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {
