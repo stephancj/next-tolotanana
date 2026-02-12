@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Edition, MedicalRecord } from '@/lib/client-db';
+import { MedicalRecord } from '@/lib/client-db';
 import LoadingSpinner from './LoadingSpinner';
 import { useTranslations, useLocale } from '../providers/I18nProvider';
+import { useEdition } from '../providers/EditionProvider';
+import { useRouter } from 'next/navigation';
 import { translateDay, translateDistance } from '@/lib/enum-translations';
 import { Locale } from '@/lib/i18n-config';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -17,24 +19,24 @@ const Icons = {
     Chart: () => <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
 };
 
-interface DashboardProps {
-    currentEdition: Edition | null;
-    onNavigate: (view: 'form' | 'list' | 'surgeons' | 'planning' | 'workflow') => void;
-    onEdit: (record: MedicalRecord) => void;
-}
-
-export default function Dashboard({ currentEdition, onNavigate, onEdit }: DashboardProps) {
+export default function Dashboard() {
+    const { currentEdition, isLoading: isEditionLoading } = useEdition();
+    const router = useRouter();
     const [records, setRecords] = useState<MedicalRecord[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingRecords, setLoadingRecords] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const t = useTranslations('dashboard');
     const tCommon = useTranslations('common');
 
     const locale = useLocale() as Locale;
 
+    const onNavigate = (path: string) => router.push(path);
+    const onEdit = (record: MedicalRecord) => router.push(`/form?id=${record.id}`);
+
     const fetchData = useCallback(async () => {
         if (!currentEdition?.public_id) {
             setRecords([]);
+            setLoadingRecords(false);
             return;
         }
 
@@ -45,7 +47,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
             const editionsRes = await fetch('/api/editions');
             if (!editionsRes.ok) throw new Error('Failed to fetch editions');
             const remoteEditions = await editionsRes.json();
-            const remoteEdition = remoteEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
+            const remoteEdition = remoteEditions.find((e: any) => e.public_id === currentEdition.public_id);
 
             if (!remoteEdition) {
                 console.error("Local edition not found on server");
@@ -69,17 +71,24 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
         } catch (err) {
             console.error("Dashboard fetch error:", err);
         } finally {
-            setLoading(false);
+            setLoadingRecords(false);
             setRefreshing(false);
         }
     }, [currentEdition?.public_id]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (!isEditionLoading) {
+            fetchData();
+        }
+    }, [fetchData, isEditionLoading]);
+
+    // Combined loading state
+    const loading = isEditionLoading || loadingRecords;
 
     const stats = useMemo(() => {
         if (loading && records.length === 0) return null;
+        // ... (rest is same, just ensuring variables match)
+        // copy pasting stats logic below...
 
         const total = records.length;
         const programmed = records.filter(r => !!r.program_mission).length;
