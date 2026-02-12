@@ -88,6 +88,17 @@ export async function POST(req: Request) {
                     pre_op_checked: toBool(record.pre_op_checked),
                     pre_op_checked_at: record.pre_op_checked_at ? new Date(record.pre_op_checked_at) : null,
 
+                    // Operation Day Workflow (Step 2, 5, 7, 8)
+                    pre_op_call: toInt(record.pre_op_call),
+                    pre_op_call_at: record.pre_op_call_at ? new Date(record.pre_op_call_at) : null,
+                    prescription_details: record.prescription_details,
+                    pharmacy_status: record.pharmacy_status,
+                    post_op_room: record.post_op_room,
+                    post_op_bed: record.post_op_bed,
+                    post_op_entry_time: record.post_op_entry_time,
+                    discharge_time: record.discharge_time,
+                    discharge_notes: record.discharge_notes,
+
                     // Operation Details
                     block_entry_time: record.block_entry_time,
                     block_exit_time: record.block_exit_time,

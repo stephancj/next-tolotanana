@@ -1,0 +1,450 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "back": "Back",
+    "home": "Home",
+    "new": "New",
+    "list": "List",
+    "saving": "Saving...",
+    "refreshing": "Refreshing...",
+    "refresh": "Refresh data",
+    "today": "today",
+    "clickToSync": "Click to synchronize",
+    "syncing": "SYNCING...",
+    "offline": "OFFLINE",
+    "online": "ONLINE"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Dashboard",
+      "subtitle": "Mission Summary"
+    },
+    "stats": {
+      "totalPatients": "Total Patients",
+      "programmed": "Scheduled",
+      "programmées": "Scheduled",
+      "programmedPatients": "Validated Patients",
+      "notProgrammed": "Not Scheduled",
+      "notProgrammedPlural": "Not Scheduled",
+      "notProgrammedeFemale": "Not Scheduled",
+      "fillRate": "Fill Rate",
+      "patientsScheduled": "of patients are scheduled"
+    },
+    "planning": {
+      "title": "Surgical Planning",
+      "noPatients": "No patients scheduled yet"
+    },
+    "gender": {
+      "title": "By Gender",
+      "men": "MEN",
+      "women": "WOMEN",
+      "programmed": "Scheduled",
+      "programmedFemale": "Scheduled",
+      "notProgrammed": "Not Scheduled",
+      "notProgrammedFemale": "Not Scheduled"
+    },
+    "origin": {
+      "title": "Origin"
+    },
+    "recentPatients": {
+      "title": "Recently Registered",
+      "noData": "No recent data",
+      "dossier": "File",
+      "programmed": "Scheduled",
+      "notProgrammed": "Not Scheduled"
+    },
+    "buttons": {
+      "team": "Team",
+      "planning": "Planning",
+      "workflow": "Workflow",
+      "list": "List",
+      "new": "New"
+    }
+  },
+  "form": {
+    "header": {
+      "title": "Fandidiana Maimaimpoana",
+      "subtitle": "Medical Record"
+    },
+    "dossierNumber": "File Number",
+    "dossierPlaceholder": "#0000",
+    "identity": {
+      "title": "Patient Identity",
+      "lastName": "Last Name",
+      "lastNameMalagasy": "Last Name (Anarana)",
+      "firstName": "First Name",
+      "firstNameMalagasy": "First Name (Fanampin'anarana)",
+      "dob": "Date of Birth",
+      "age": "Age",
+      "ageMalagasy": "Age (Taona)",
+      "gender": "Gender",
+      "male": "Male",
+      "female": "Female"
+    },
+    "contact": {
+      "title": "Contact",
+      "phone1": "Phone 1",
+      "phone2": "Phone 2",
+      "address": "Address",
+      "distance": "Distance"
+    },
+    "vitals": {
+      "weight": "Weight",
+      "height": "Height",
+      "bmi": "BMI",
+      "temp": "Temp",
+      "bloodPressure": "Blood Pressure",
+      "pulse": "Pulse",
+      "respiration": "Resp.",
+      "spo2": "SpO2"
+    },
+    "surgical": {
+      "title": "Surgical Consultation",
+      "clinicalDiagnosis": "Clinical Diagnosis",
+      "clinicalDiagnosisPlaceholder": "Diagnosis description...",
+      "interventionType": "Type of Intervention",
+      "toSchedule": "To Schedule?",
+      "plannedDay": "Planned Day",
+      "observation": "Observation",
+      "observationPlaceholder": "Notes and observations..."
+    },
+    "anesthesia": {
+      "title": "Pre-Anesthetic Consultation",
+      "history": "Medical History",
+      "diabetes": "Diabetes",
+      "hypertension": "Hypertension",
+      "asthma": "Asthma",
+      "cardiopathy": "Heart Disease",
+      "none": "None",
+      "others": "Others",
+      "othersPlaceholder": "Specify...",
+      "asaScore": "ASA Score",
+      "anesthesiaType": "Anesthesia Type",
+      "local": "Local",
+      "regional": "Regional",
+      "general": "General",
+      "sedation": "Sedation",
+      "anesthesiaObservation": "Anesthesia Observation",
+      "anesthesiaObservationPlaceholder": "Specific notes..."
+    },
+    "messages": {
+      "saveSuccess": "Record saved successfully (Offline Mode)",
+      "updateSuccess": "Record updated successfully",
+      "saveError": "Error saving record locally"
+    }
+  },
+  "operations": {
+    "header": {
+      "title": "Operating Room"
+    },
+    "tabs": {
+      "preOp": "Pre-Operative",
+      "bloc": "OR & Intervention",
+      "postOp": "Post-Op & Discharge"
+    },
+    "preOp": {
+      "responsible": "Pre-Op Responsible",
+      "callCompleted": "Pre-Operative Call Completed",
+      "callDescription": "Phone confirmation of patient arrival (the day before)",
+      "validatedOn": "Validated on",
+      "presenceCheck": "D-0 Presence Check",
+      "presenceDescription": "Patient is physically present and ready (Complete file)"
+    },
+    "bloc": {
+      "entry": "OR Entry",
+      "entryDescription": "Record patient arrival time in operating room",
+      "entryTime": "Entry Time",
+      "interventionDetails": "Intervention Details",
+      "category": "Category",
+      "operativeReport": "Operative Report",
+      "procedurePlaceholder": "Procedure performed...",
+      "team": "Team",
+      "noSurgeons": "No surgeons configured",
+      "exit": "OR Exit",
+      "exitTime": "Intervention end time"
+    },
+    "prescription": {
+      "title": "Prescription & Pharmacy",
+      "detailsPlaceholder": "List of medications and instructions...",
+      "pharmacyStatus": "Pharmacy Status"
+    },
+    "postOp": {
+      "responsible": "Post-Op Responsible",
+      "recoveryRoom": "Recovery Room",
+      "patientSetup": "Patient Setup",
+      "room": "Room #",
+      "bed": "Bed #",
+      "setupTime": "Setup Time",
+      "finalDischarge": "Final Discharge",
+      "dischargeTitle": "File Closure",
+      "dischargeTime": "Discharge Time",
+      "dischargeNotes": "Discharge Notes / Instructions",
+      "dischargeNotesPlaceholder": "Final observations, patient state at discharge..."
+    },
+    "messages": {
+      "saveSuccess": "✓ Operating room data saved successfully",
+      "saveError": "Error saving data"
+    }
+  },
+  "planning": {
+    "title": "Surgical Planning",
+    "subtitle": "Surgical Week",
+    "loading": "Loading planning...",
+    "totalScheduled": "patient(s) scheduled in total",
+    "unassigned": "without assigned day",
+    "noOperations": "No operations scheduled",
+    "noOperationsForDay": "No intervention for {day}",
+    "howToAdd": "To add patients to the planning:",
+    "otherDays": "The {count} scheduled patient(s) are on other days",
+    "instructions": {
+      "step1": "Create a new patient from the Dashboard",
+      "step2": "Check \"To schedule\" in the form",
+      "step3": "Select a day of the week"
+    },
+    "card": {
+      "diagnosis": "Diagnosis",
+      "interventionType": "Intervention Type",
+      "preOpChecked": "Patient checked in pre-op",
+      "blocDataSaved": "OR data saved",
+      "entry": "Entry",
+      "exit": "Exit",
+      "edit": "Edit",
+      "enterBloc": "Enter OR data"
+    }
+  },
+  "list": {
+    "header": {
+      "database": "Database",
+      "patientsList": "Patients List",
+      "local": "Local (SQLite)",
+      "remote": "Server (Neon)",
+      "offlineTitle": "Patients List (Offline)",
+      "savedTitle": "Patients List (Saved)"
+    },
+    "buttons": {
+      "export": "Export CSV",
+      "filters": "Filters",
+      "viewDetails": "View details"
+    },
+    "search": {
+      "placeholder": "Search (Name, Firstname, Dossier, Address...)",
+      "results": "{count} result(s) found",
+      "advanced": {
+        "title": "Advanced Filters",
+        "reset": "Reset",
+        "where": "WHERE",
+        "and": "AND",
+        "valuePlaceholder": "Value...",
+        "deleteFilter": "Delete this filter",
+        "addFilter": "Add a filter",
+        "fields": {
+          "all": "All (Global Search)",
+          "dossier_number": "Dossier #",
+          "last_name": "Last Name",
+          "first_name": "First Name",
+          "age": "Age",
+          "gender": "Gender",
+          "address": "Address",
+          "clinical_diagnosis": "Diagnosis",
+          "intervention_type": "Intervention",
+          "planning_day": "Planned Day",
+          "program_mission": "Programmed",
+          "distance": "Distance"
+        },
+        "operators": {
+          "contains": "Contains",
+          "equals": "Equals",
+          "starts_with": "Starts with",
+          "ends_with": "Ends with",
+          "gt": "Greater than (>)",
+          "lt": "Less than (<)"
+        }
+      }
+    },
+    "empty": {
+      "local": "No local records. Start by creating one.",
+      "remote": "No records on server."
+    },
+    "table": {
+      "dossier": "Dossier #",
+      "patient": "Patient",
+      "age": "Age",
+      "distance": "Distance",
+      "diagnosis": "Diagnosis",
+      "plannedDay": "Planned Day",
+      "status": "Status",
+      "actions": "Actions",
+      "programmed": "Programmed",
+      "notProgrammed": "Not programmed",
+      "synced": "Sync",
+      "pending": "Pending",
+      "unknown": "Unknown",
+      "na": "N/A"
+    },
+    "delete": {
+      "confirm": "Are you sure you want to delete the record for {name}?",
+      "error": "Error during deletion."
+    }
+  },
+  "editions": {
+    "indicator": {
+      "active": "Active Edition",
+      "change": "Switch edition",
+      "daysRemaining": "{days}d"
+    },
+    "selector": {
+      "title": "Select an Edition",
+      "description": "Choose the medical mission you want to work on",
+      "noEditions": "No editions available",
+      "syncPrompt": "Please synchronize to retrieve editions",
+      "loading": "Loading editions...",
+      "retrieved": "editions retrieved from server"
+    }
+  },
+  "surgeons": {
+    "title": "Medical Team Management",
+    "close": "Close",
+    "add": {
+      "title": "Add a new member",
+      "namePlaceholder": "Full Name (Dr. ...)",
+      "specialtyPlaceholder": "Specialty (Surgeon, Anesthetist...)",
+      "submit": "Add"
+    },
+    "list": {
+      "title": "Available Members",
+      "subtitle": "Assign members to {editionName}",
+      "empty": "No registered members.",
+      "loading": "Loading...",
+      "unspecified": "Unspecified",
+      "assigned": "✓ Assigned",
+      "assign": "+ Assign"
+    }
+  },
+  "workflow": {
+    "title": "Quick Workflow (Bulk Entry)",
+    "tabs": {
+      "preOp": "1. Pre-Op",
+      "bloc": "2. OR",
+      "postOp": "3. Post-Op"
+    },
+    "searchPlaceholder": "Search by name or dossier number...",
+    "resultsFound": "{count} patients found",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "status": {
+      "callOk": "Call OK",
+      "presenceOk": "Presence OK",
+      "entry": "Entry: {time}",
+      "pharmaOk": "Pharma OK",
+      "exit": "Exit: {time}",
+      "undefinedIntervention": "Undefined Intervention"
+    },
+    "bulk": {
+      "title": "Bulk Actions",
+      "subtitle": "{count} selected patient(s)",
+      "sections": {
+        "quickCheck": "Quick Check",
+        "blocEntry": "OR Entry",
+        "pharmacyStatus": "Pharmacy Status",
+        "assignSurgeons": "Assign Surgeons",
+        "blocExit": "OR Exit",
+        "postOpEntry": "Post-Op Entry",
+        "discharge": "Final Discharge"
+      },
+      "labels": {
+        "preOpCallOk": "Pre-Op Call OK",
+        "presenceCheckOk": "Presence Check OK",
+        "noChange": "-- Do not change --",
+        "pending": "⏳ Pending",
+        "retrieved": "✅ Retrieved",
+        "none": "❌ No meds",
+        "noStaff": "No staff available"
+      },
+      "submit": "Apply to ({count})"
+    },
+    "alerts": {
+      "success": "✅ Update successful for {count} patient(s)",
+      "error": "Error during update"
+    }
+  },
+  "enums": {
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "toDefine": "To define"
+    },
+    "distance": {
+      "inCity": "In city",
+      "nearby": "Nearby",
+      "far": "Far",
+      "unspecified": "Unspecified"
+    },
+    "pharmacyStatus": {
+      "pending": "Pending",
+      "retrieved": "Medications retrieved",
+      "none": "No prescription"
+    },
+    "gender": {
+      "male": "M",
+      "female": "F"
+    }
+  },
+  "patient": {
+    "sections": {
+      "personal": "Personal Information",
+      "medical": "Medical Parameters",
+      "surgical": "Surgical Consultation",
+      "history": "History"
+    },
+    "fields": {
+      "dob": "Date of Birth",
+      "age": "Age",
+      "gender": "Gender",
+      "phone": "Phone",
+      "address": "Address",
+      "distance": "Distance",
+      "weight": "Weight",
+      "height": "Height",
+      "bmi": "BMI",
+      "bloodPressure": "Blood Pressure",
+      "temperature": "Temperature",
+      "pulse": "Pulse",
+      "respiratoryRate": "Resp. Rate",
+      "spo2": "SpO2",
+      "clinicalDiagnosis": "Clinical Diagnosis",
+      "interventionType": "Intervention Type",
+      "observation": "Observation",
+      "programmed": "To be programmed",
+      "planningDay": "Planned Day",
+      "historyOthers": "Other history",
+      "asaScore": "ASA Score",
+      "anesthesiaType": "Anesthesia Type",
+      "anesthesiaObservation": "Anesthesia Observation"
+    },
+    "history": {
+      "diabetes": "Diabetes",
+      "hypertension": "Hypertension",
+      "asthma": "Asthma",
+      "cardiopathy": "Cardiopathy",
+      "none": "None known"
+    },
+    "values": {
+      "male": "Male",
+      "female": "Female",
+      "yes": "Yes",
+      "no": "No",
+      "unspecified": "Unspecified",
+      "toBeDefined": "To be defined"
+    }
+  },
+  "errors": {
+    "loadingEdition": "Error loading edition:"
+  }
+}

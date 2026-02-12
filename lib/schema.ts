@@ -91,6 +91,17 @@ export const medicalRecords = pgTable('medical_records', {
     anesthesia_type: text('anesthesia_type'),
     anesthesia_observation: text('anesthesia_observation'),
 
+    // Operation Day Workflow (Step 2, 5, 7, 8)
+    pre_op_call: integer('pre_op_call').default(0),
+    pre_op_call_at: timestamp('pre_op_call_at'),
+    prescription_details: text('prescription_details'),
+    pharmacy_status: text('pharmacy_status'),
+    post_op_room: text('post_op_room'),
+    post_op_bed: text('post_op_bed'),
+    post_op_entry_time: text('post_op_entry_time'),
+    discharge_time: text('discharge_time'),
+    discharge_notes: text('discharge_notes'),
+
     // Sync Metadata
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),

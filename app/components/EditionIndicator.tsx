@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Edition } from '@/lib/client-db';
-import { getSelectedEdition, getDaysUntilExpiration } from '@/lib/edition-storage';
+import { getDaysUntilExpiration } from '@/lib/edition-storage';
+import { useTranslations } from '../providers/I18nProvider';
 
 interface EditionIndicatorProps {
     edition: Edition | null;
@@ -11,6 +12,7 @@ interface EditionIndicatorProps {
 
 export default function EditionIndicator({ edition, onChangeEdition }: EditionIndicatorProps) {
     const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+    const t = useTranslations('editions.indicator');
 
     useEffect(() => {
         const days = getDaysUntilExpiration();
@@ -26,11 +28,11 @@ export default function EditionIndicator({ edition, onChangeEdition }: EditionIn
             <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                        Édition Active
+                        {t('active')}
                     </span>
                     {isExpiringSoon && (
                         <span className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                            ⏰ {daysRemaining}j
+                            ⏰ {t('daysRemaining', { days: daysRemaining })}
                         </span>
                     )}
                 </div>
@@ -47,7 +49,7 @@ export default function EditionIndicator({ edition, onChangeEdition }: EditionIn
             <button
                 onClick={onChangeEdition}
                 className="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-all flex items-center justify-center group"
-                title="Changer d'édition"
+                title={t('change')}
             >
                 <span className="text-sm group-hover:rotate-180 transition-transform duration-300">
                     🔄

@@ -1,11 +1,17 @@
+'use client';
+
 import Image from 'next/image';
+import { useTranslations } from '../providers/I18nProvider';
 
 interface LoadingSpinnerProps {
     message?: string;
     fullScreen?: boolean;
 }
 
-export default function LoadingSpinner({ message = "Chargement...", fullScreen = true }: LoadingSpinnerProps) {
+export default function LoadingSpinner({ message, fullScreen = true }: LoadingSpinnerProps) {
+    const tCommon = useTranslations('common');
+    const displayMessage = message || tCommon('loading');
+
     const containerClass = fullScreen
         ? "fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-pink-50 via-white to-indigo-50"
         : "flex items-center justify-center p-12";
@@ -42,7 +48,7 @@ export default function LoadingSpinner({ message = "Chargement...", fullScreen =
 
                 {/* Message de chargement */}
                 <div className="text-center">
-                    <p className="text-lg font-bold text-slate-700 mb-2">{message}</p>
+                    <p className="text-lg font-bold text-slate-700 mb-2">{displayMessage}</p>
                     <div className="flex gap-1 justify-center">
                         <span className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                         <span className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>

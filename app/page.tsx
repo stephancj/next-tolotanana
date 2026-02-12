@@ -8,12 +8,13 @@ import Dashboard from './components/Dashboard';
 import SurgeonManager from './components/SurgeonManager';
 import WeeklyPlanning from './components/WeeklyPlanning';
 import OperationForm from './components/OperationForm';
+import WorkflowManager from './components/WorkflowManager';
 import { useSync } from './hooks/useSync';
 import { MedicalRecord, Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
 
 export default function Home() {
-  const [view, setView] = useState<'dashboard' | 'form' | 'list' | 'surgeons' | 'planning' | 'operation'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'form' | 'list' | 'surgeons' | 'planning' | 'operation' | 'workflow'>('dashboard');
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | undefined>(undefined);
   const [selectedOperationRecord, setSelectedOperationRecord] = useState<MedicalRecord | undefined>(undefined);
   const [currentEdition, setCurrentEdition] = useState<Edition | null>(null);
@@ -142,6 +143,11 @@ export default function Home() {
             setSelectedOperationRecord(undefined);
             setView('planning');
           }}
+        />
+      ) : view === 'workflow' ? (
+        <WorkflowManager
+          currentEdition={currentEdition}
+          onBack={() => setView('dashboard')}
         />
       ) : (
         <RecordList

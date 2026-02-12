@@ -9,6 +9,9 @@ import { useSync } from '../hooks/useSync';
 import AdvancedSearch, { FilterCriterion } from './AdvancedSearch';
 import PatientDetailModal from './PatientDetailModal';
 import LoadingSpinner from './LoadingSpinner';
+import { useTranslations, useLocale } from '../providers/I18nProvider';
+import { translateDistance, translateDay } from '@/lib/enum-translations';
+import { Locale } from '@/lib/i18n-config';
 
 interface RecordListProps {
     onBack: () => void;
@@ -26,13 +29,13 @@ const AgeDisplay = ({ age }: { age: string | number }) => {
     let bgColor = 'bg-gray-100';
     let textColor = 'text-gray-700';
 
-    if (ageStr.includes('semaine')) {
+    if (ageStr.includes('semaine') || ageStr.includes('week')) {
         bgColor = 'bg-pink-100';
         textColor = 'text-pink-700';
-    } else if (ageStr.includes('mois')) {
+    } else if (ageStr.includes('mois') || ageStr.includes('month')) {
         bgColor = 'bg-purple-100';
         textColor = 'text-purple-700';
-    } else if (ageStr.includes('an')) {
+    } else if (ageStr.includes('an') || ageStr.includes('year')) {
         bgColor = 'bg-indigo-100';
         textColor = 'text-indigo-700';
     }
@@ -55,6 +58,10 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
     const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
     const [sortField, setSortField] = useState<keyof MedicalRecord>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+    const t = useTranslations('list');
+    const tCommon = useTranslations('common');
+    const locale = useLocale() as Locale;
 
     // Local Records
     const localRecords = useLiveQuery<MedicalRecord[]>(
@@ -193,7 +200,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
     const loading = activeTab === 'local' ? !localRecords : remoteLoading;
 
     const deleteRecord = async (id: number, name: string) => {
-        if (window.confirm(`Voulez-vous vraiment supprimer le dossier de ${name} ?`)) {
+        if (window.confirm(t('delete.confirm', { name }))) {
             try {
                 await db.medical_records.update(id, {
                     deleted: 1,
@@ -202,7 +209,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                 });
             } catch (error) {
                 console.error("Failed to delete record:", error);
-                alert("Erreur lors de la suppression.");
+                alert(t('delete.error'));
             }
         }
     };
@@ -287,17 +294,17 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                         ←
                     </button>
                     <div>
-                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Base de Données</h2>
+                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.database')}</h2>
                         <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                             <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
-                            Liste des Patients
+                            {t('header.patientsList')}
                         </h1>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                     <button onClick={downloadCSV} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg shadow-sm border border-emerald-100 hover:bg-emerald-100 transition font-bold flex items-center gap-2 text-xs">
-                        <span>📥</span> Exporter CSV ({activeTab})
+                        <span>📥</span> {t('buttons.export')} ({activeTab})
                     </button>
 
                     <div className="w-px h-8 bg-gray-200 mx-2 hidden md:block"></div>
@@ -306,10 +313,10 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                     <div
                         onClick={manualSync}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
-                        title="Cliquez pour synchroniser"
+                        title={tCommon('clickToSync')}
                     >
                         <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        {status === 'syncing' ? 'SYNCHRO...' : status === 'offline' ? 'OFFLINE' : 'ONLINE'}
+                        {status === 'syncing' ? tCommon('syncing') : status === 'offline' ? tCommon('offline') : tCommon('online')}
                         {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
                     </div>
 
@@ -336,7 +343,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
-                    <span>📱 Local (SQLite)</span>
+                    <span>📱 {t('header.local')}</span>
                     <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                         {localRecords?.length || 0}
                     </span>
@@ -348,7 +355,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                         }`}
                 >
-                    <span>☁️ Serveur (Neon)</span>
+                    <span>☁️ {t('header.remote')}</span>
                     <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
                         {remoteRecords.length > 0 ? remoteRecords.length : (activeTab === 'remote' && remoteLoading ? '...' : '?')}
                     </span>
@@ -363,7 +370,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
                             <input
                                 type="text"
-                                placeholder="Rechercher (Nom, Prénom, Dossier, Adresse...)"
+                                placeholder={t('search.placeholder')}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm transition-all"
@@ -373,7 +380,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                             onClick={() => setIsAdvancedSearchOpen(true)}
                             className="bg-white px-4 py-3 rounded-xl border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 flex items-center gap-2 hover:border-indigo-300 transition-all"
                         >
-                            <span>⚡</span> <span className="hidden sm:inline">Filtres</span>
+                            <span>⚡</span> <span className="hidden sm:inline">{t('buttons.filters')}</span>
                         </button>
                     </div>
                 ) : (
@@ -388,21 +395,21 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
             {/* TABS & COUNTERS */}
             {/* RESULT COUNT */}
             <div className="mb-4 text-sm text-gray-500 font-medium px-1">
-                {displayRecords.length} résultat{displayRecords.length > 1 ? 's' : ''} trouvé{displayRecords.length > 1 ? 's' : ''}
+                {t('search.results', { count: displayRecords.length })}
             </div>
 
             <h2 className="text-2xl font-bold mb-6 text-gray-800">
-                {activeTab === 'local' ? "Liste des Patients (Hors ligne)" : "Liste des Patients (Sauvegardés)"}
+                {activeTab === 'local' ? t('header.offlineTitle') : t('header.savedTitle')}
             </h2>
 
             {
                 loading ? (
-                    <LoadingSpinner message="Chargement de la liste..." fullScreen={false} />
+                    <LoadingSpinner message={tCommon('loading')} fullScreen={false} />
                 ) : displayRecords.length === 0 ? (
                     <div className="text-center text-gray-500 p-12 bg-white rounded-2xl border border-dashed border-gray-300">
                         {activeTab === 'local'
-                            ? "Aucun dossier local. Commencez par en créer un."
-                            : "Aucun dossier sur le serveur."}
+                            ? t('empty.local')
+                            : t('empty.remote')}
                     </div>
                 ) : (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -410,19 +417,14 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                             <table className="w-full">
                                 <thead className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
                                     <tr>
-                                        <SortableHeader field="dossier_number" label="N° Dossier" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        <SortableHeader field="last_name" label="Patient" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        {/* First name combined */}
-                                        <SortableHeader field="age" label="Âge" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        {/* Gender removed */}
-                                        {/* Address removed */}
-                                        <SortableHeader field="distance" label="Distance" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        <SortableHeader field="clinical_diagnosis" label="Diagnostic" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        {/* Mission removed */}
-                                        <SortableHeader field="planning_day" label="Jour Prévu" onSort={handleSort} currentField={sortField} direction={sortDirection} />
-                                        {activeTab === 'local' && <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Statut</th>}
-                                        {/* Date removed */}
-                                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-indigo-50 to-purple-50">Actions</th>
+                                        <SortableHeader field="dossier_number" label={t('table.dossier')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="last_name" label={t('table.patient')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="age" label={t('table.age')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="distance" label={t('table.distance')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="clinical_diagnosis" label={t('table.diagnosis')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        <SortableHeader field="planning_day" label={t('table.plannedDay')} onSort={handleSort} currentField={sortField} direction={sortDirection} />
+                                        {activeTab === 'local' && <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('table.status')}</th>}
+                                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider sticky right-0 bg-gradient-to-r from-indigo-50 to-purple-50">{t('table.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -430,39 +432,36 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                                         <tr key={r.id || idx} className="hover:bg-indigo-50/30 transition-colors">
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`w-2 h-2 rounded-full ${r.program_mission ? 'bg-green-500' : 'bg-red-300'}`} title={r.program_mission ? 'Programmé' : 'Non programmé'}></span>
+                                                    <span className={`w-2 h-2 rounded-full ${r.program_mission ? 'bg-green-500' : 'bg-red-300'}`} title={r.program_mission ? t('table.programmed') : t('table.notProgrammed')}></span>
                                                     <span className={`px-2 py-1 rounded text-xs font-semibold ${r.gender === 'M' ? 'bg-blue-100 text-blue-700' :
                                                         r.gender === 'F' ? 'bg-pink-100 text-pink-700' :
                                                             'bg-gray-100 text-gray-700'
                                                         }`}>
-                                                        {r.dossier_number || 'N/A'}
+                                                        {r.dossier_number || t('table.na')}
                                                     </span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-col">
-                                                    <span className="font-bold text-gray-800 uppercase text-sm leading-tight">{r.last_name || 'Inconnu'}</span>
+                                                    <span className="font-bold text-gray-800 uppercase text-sm leading-tight">{r.last_name || t('table.unknown')}</span>
                                                     <span className="text-xs text-gray-500">{r.first_name || ''}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 <AgeDisplay age={r.age} />
                                             </td>
-                                            {/* Gender removed */}
-                                            {/* Address removed */}
                                             <td className="px-4 py-3">
                                                 <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${r.distance === 'en ville' ? 'bg-green-100 text-green-700' :
                                                     r.distance === 'un peu loin' ? 'bg-yellow-100 text-yellow-700' :
                                                         r.distance === 'loin' ? 'bg-orange-100 text-orange-700' :
                                                             'bg-gray-100 text-gray-600'
                                                     }`}>
-                                                    {r.distance || 'non précisé'}
+                                                    {translateDistance(r.distance, locale)}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-gray-600 max-w-xs truncate" title={r.clinical_diagnosis}>
                                                 {r.clinical_diagnosis || '-'}
                                             </td>
-                                            {/* Mission removed */}
                                             <td className="px-4 py-3 text-center">
                                                 {!r.program_mission ? (
                                                     <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
@@ -470,7 +469,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                                                     </span>
                                                 ) : r.planning_day ? (
                                                     <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">
-                                                        {r.planning_day}
+                                                        {translateDay(r.planning_day, locale)}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-300">-</span>
@@ -481,33 +480,32 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                                                     {r.sync_status === 'synced' ? (
                                                         <span className="text-green-600 flex items-center justify-center gap-1 text-xs">
                                                             <span className="inline-block w-2 h-2 bg-green-500 rounded-full"></span>
-                                                            Sync
+                                                            {t('table.synced')}
                                                         </span>
                                                     ) : (
                                                         <span className="text-orange-500 flex items-center justify-center gap-1 text-xs">
                                                             <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-                                                            En attente
+                                                            {t('table.pending')}
                                                         </span>
                                                     )}
                                                 </td>
                                             )}
-                                            {/* Date removed */}
                                             <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-white">
                                                 <div className="flex gap-1 justify-end">
                                                     {activeTab === 'remote' && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setSelectedRecord(r); }}
                                                             className="p-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
-                                                            title="Voir les détails"
+                                                            title={t('buttons.viewDetails')}
                                                         >
-                                                            �️
+                                                            ️
                                                         </button>
                                                     )}
                                                     {onEdit && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); onEdit(r); }}
                                                             className="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition"
-                                                            title="Modifier"
+                                                            title={tCommon('edit')}
                                                         >
                                                             ✏️
                                                         </button>
@@ -516,7 +514,7 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); if (r.id) deleteRecord(r.id, r.last_name); }}
                                                             className="p-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition"
-                                                            title="Supprimer"
+                                                            title={tCommon('delete')}
                                                         >
                                                             🗑️
                                                         </button>
@@ -532,7 +530,6 @@ export default function RecordList({ onBack, onEdit, currentEditionId, edition, 
                 )
             }
 
-            {/* Modal de détails */}
             {/* Modal de détails */}
             {selectedRecord && (
                 <PatientDetailModal
@@ -578,6 +575,3 @@ function SortableHeader({
         </th>
     );
 }
-
-
-

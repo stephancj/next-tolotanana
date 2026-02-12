@@ -53,6 +53,23 @@ export interface MedicalRecord {
     intervention_details?: string;
     diagnosis_category?: string;
 
+    // Pre-Op Call (Step 2)
+    pre_op_call?: number; // 0 or 1
+    pre_op_call_at?: string;
+
+    // Prescription & Pharmacy (Step 5)
+    prescription_details?: string;
+    pharmacy_status?: 'pending' | 'retrieved' | 'none';
+
+    // Post-Op (Step 7)
+    post_op_room?: string;
+    post_op_bed?: string;
+    post_op_entry_time?: string;
+
+    // Discharge (Step 8)
+    discharge_time?: string;
+    discharge_notes?: string;
+
     // History (stored as boolean/number 0 or 1)
     history_diabetes: number;
     history_hypertension: number;
@@ -145,6 +162,13 @@ export class TolotananaDB extends Dexie {
             surgeons: '++id, public_id, name, is_active, sync_status, deleted',
             edition_surgeons: '[edition_id+surgeon_id], edition_id, surgeon_id',
             record_surgeons: '++id, medical_record_id, surgeon_id, sync_status',
+        });
+
+        // Version 5: Full Operation Day Workflow
+        this.version(5).stores({
+            medical_records: '++id, public_id, edition_id, dossier_number, last_name, created_at, sync_status, deleted'
+        }).upgrade(async () => {
+            // No index changes needed for new text fields, but bumping version to ensure consistency
         });
     }
 }

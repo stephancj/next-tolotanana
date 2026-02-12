@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MedicalRecord, Edition } from '@/lib/client-db';
 import LoadingSpinner from './LoadingSpinner';
+import { useTranslations, useLocale } from '../providers/I18nProvider';
+import { translateDay, translateGender } from '@/lib/enum-translations';
+import { Locale } from '@/lib/i18n-config';
 
 interface WeeklyPlanningProps {
     currentEdition: Edition | null;
@@ -16,6 +19,11 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
     const [selectedDay, setSelectedDay] = useState<string>(DAYS[0]);
     const [allRecords, setAllRecords] = useState<MedicalRecord[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // I18n Hooks
+    const t = useTranslations('planning');
+    const tCommon = useTranslations('common');
+    const locale = useLocale() as Locale;
 
     const fetchData = useCallback(async () => {
         if (!currentEdition?.public_id) {
@@ -83,7 +91,7 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
     const selectedRecords = recordsByDay[selectedDay] || [];
 
     if (loading) {
-        return <LoadingSpinner message="Chargement du planning..." />;
+        return <LoadingSpinner message={t('loading')} />;
     }
 
     return (
@@ -92,9 +100,9 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
             <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-40 border-b border-indigo-50 px-6 py-4 shadow-sm">
                 <div className="max-w-[1600px] mx-auto flex items-center justify-between">
                     <div>
-                        <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Planning Opératoire</h2>
+                        <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('title')}</h2>
                         <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            📅 Semaine Chirurgicale
+                            📅 {t('subtitle')}
                         </h1>
                         {currentEdition && (
                             <p className="text-sm text-gray-500 mt-1">
@@ -106,7 +114,7 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                         onClick={onBack}
                         className="px-5 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2"
                     >
-                        <span>←</span> Retour
+                        <span>←</span> {tCommon('back')}
                     </button>
                 </div>
             </header>
@@ -126,7 +134,7 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                     : 'bg-white text-slate-600 hover:bg-indigo-50 border border-slate-200'
                                     }`}
                             >
-                                {day}
+                                {translateDay(day, locale)}
                                 {count > 0 && (
                                     <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${isSelected ? 'bg-white/20' : 'bg-indigo-100 text-indigo-700'
                                         }`}>
@@ -144,10 +152,10 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                     {allRecords.length > 0 && (
                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
                             <p className="text-sm text-blue-700">
-                                📊 <strong>{allRecords.length}</strong> patient(s) programmé(s) au total
+                                📊 <strong>{allRecords.length}</strong> {t('totalScheduled')}
                                 {allRecords.filter(r => !r.planning_day).length > 0 && (
                                     <span className="ml-2 text-blue-600">
-                                        • <strong>{allRecords.filter(r => !r.planning_day).length}</strong> sans jour assigné
+                                        • <strong>{allRecords.filter(r => !r.planning_day).length}</strong> {t('unassigned')}
                                     </span>
                                 )}
                             </p>
@@ -159,29 +167,29 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                             <div className="text-6xl mb-4">📋</div>
                             <h3 className="text-xl font-bold text-slate-700 mb-2">
                                 {allRecords.length === 0
-                                    ? "Aucune opération programmée"
-                                    : `Aucune intervention pour ${selectedDay}`
+                                    ? t('noOperations')
+                                    : t('noOperationsForDay', { day: translateDay(selectedDay, locale) })
                                 }
                             </h3>
                             <p className="text-slate-500 mb-4">
                                 {allRecords.length === 0
-                                    ? "Pour ajouter des patients au planning :"
-                                    : `Les ${allRecords.length} patient(s) programmé(s) sont sur d'autres jours`
+                                    ? t('howToAdd')
+                                    : t('otherDays', { count: allRecords.length })
                                 }
                             </p>
                             {allRecords.length === 0 && (
                                 <ol className="text-left max-w-md mx-auto space-y-2 text-sm text-slate-600">
                                     <li className="flex items-start gap-2">
                                         <span className="font-bold text-indigo-600">1.</span>
-                                        <span>Créez un nouveau patient depuis le Dashboard</span>
+                                        <span>{t('instructions.step1')}</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="font-bold text-indigo-600">2.</span>
-                                        <span>Cochez &quot;À programmer&quot; dans le formulaire</span>
+                                        <span>{t('instructions.step2')}</span>
                                     </li>
                                     <li className="flex items-start gap-2">
                                         <span className="font-bold text-indigo-600">3.</span>
-                                        <span>Sélectionnez un jour de la semaine</span>
+                                        <span>{t('instructions.step3')}</span>
                                     </li>
                                 </ol>
                             )}
@@ -203,18 +211,18 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                                         {record.last_name} {record.first_name}
                                                     </h3>
                                                     <p className="text-sm text-slate-500">
-                                                        {record.age} • {record.gender === 'M' ? 'Masculin' : 'Féminin'}
+                                                        {record.age} • {translateGender(record.gender, locale)}
                                                     </p>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                                 <div>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Diagnostic</p>
+                                                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">{t('card.diagnosis')}</p>
                                                     <p className="text-sm text-slate-700">{record.clinical_diagnosis || 'Non renseigné'}</p>
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Type d&apos;intervention</p>
+                                                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">{t('card.interventionType')}</p>
                                                     <p className="text-sm text-slate-700">{record.intervention_type || 'Non renseigné'}</p>
                                                 </div>
                                             </div>
@@ -223,11 +231,11 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                             {record.pre_op_checked === 1 && (
                                                 <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
                                                     <p className="text-xs font-bold text-green-600 uppercase flex items-center gap-2">
-                                                        <span>✓</span> Patient vérifié en pré-opératoire
+                                                        <span>✓</span> {t('card.preOpChecked')}
                                                     </p>
                                                     {record.pre_op_checked_at && (
                                                         <p className="text-xs text-green-600 mt-1">
-                                                            {new Date(record.pre_op_checked_at).toLocaleString('fr-FR', {
+                                                            {new Date(record.pre_op_checked_at).toLocaleString((locale === 'en' ? 'en-US' : 'fr-FR'), {
                                                                 day: '2-digit',
                                                                 month: '2-digit',
                                                                 hour: '2-digit',
@@ -241,17 +249,17 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                             {hasOperationData && (
                                                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
                                                     <p className="text-xs font-bold text-green-600 uppercase mb-2 flex items-center gap-2">
-                                                        <span>✓</span> Données du bloc enregistrées
+                                                        <span>✓</span> {t('card.blocDataSaved')}
                                                     </p>
                                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                                         {record.block_entry_time && (
                                                             <div>
-                                                                <span className="text-green-700 font-medium">Entrée:</span> {record.block_entry_time}
+                                                                <span className="text-green-700 font-medium">{t('card.entry')}:</span> {record.block_entry_time}
                                                             </div>
                                                         )}
                                                         {record.block_exit_time && (
                                                             <div>
-                                                                <span className="text-green-700 font-medium">Sortie:</span> {record.block_exit_time}
+                                                                <span className="text-green-700 font-medium">{t('card.exit')}:</span> {record.block_exit_time}
                                                             </div>
                                                         )}
                                                     </div>
@@ -266,7 +274,7 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                                 : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
                                                 }`}
                                         >
-                                            {hasOperationData ? '📝 Modifier' : '✚ Saisir bloc'}
+                                            {hasOperationData ? `📝 ${t('card.edit')}` : `✚ ${t('card.enterBloc')}`}
                                         </button>
                                     </div>
                                 </div>

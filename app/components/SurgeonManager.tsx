@@ -1,8 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Edition } from '@/lib/client-db';
+import { useTranslations } from '../providers/I18nProvider';
 
 interface Surgeon {
     id: number;
@@ -25,6 +25,7 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
     const [loading, setLoading] = useState(true);
     const [newSurgeonName, setNewSurgeonName] = useState('');
     const [newSpecialty, setNewSpecialty] = useState('');
+    const t = useTranslations('surgeons');
 
     useEffect(() => {
         fetchData();
@@ -117,17 +118,17 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
     return (
         <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg mt-8">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Gestion de l'Équipe Médicale</h2>
-                <button onClick={onBack} className="text-gray-500 hover:text-gray-700">Fermer</button>
+                <h2 className="text-2xl font-bold text-gray-800">{t('title')}</h2>
+                <button onClick={onBack} className="text-gray-500 hover:text-gray-700">{t('close')}</button>
             </div>
 
             {/* Create Surgeon Form */}
             <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="font-semibold text-lg mb-4 text-gray-700">Ajouter un nouveau membre</h3>
+                <h3 className="font-semibold text-lg mb-4 text-gray-700">{t('add.title')}</h3>
                 <form onSubmit={handleCreateSurgeon} className="flex gap-4">
                     <input
                         type="text"
-                        placeholder="Nom complet (Dr. ...)"
+                        placeholder={t('add.namePlaceholder')}
                         value={newSurgeonName}
                         onChange={(e) => setNewSurgeonName(e.target.value)}
                         className="flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -135,13 +136,13 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
                     />
                     <input
                         type="text"
-                        placeholder="Spécialité (Chirurgien, Anesthésiste...)"
+                        placeholder={t('add.specialtyPlaceholder')}
                         value={newSpecialty}
                         onChange={(e) => setNewSpecialty(e.target.value)}
                         className="flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
-                        Ajouter
+                        {t('add.submit')}
                     </button>
                 </form>
             </div>
@@ -149,16 +150,16 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
             {/* List and Assign */}
             <div>
                 <h3 className="font-semibold text-lg mb-4 text-gray-700 flex justify-between">
-                    <span>Membres disponibles</span>
-                    {currentEdition && <span className="text-sm font-normal text-gray-500">Assignez les membres à {currentEdition.name}</span>}
+                    <span>{t('list.title')}</span>
+                    {currentEdition && <span className="text-sm font-normal text-gray-500">{t('list.subtitle', { editionName: currentEdition.name })}</span>}
                 </h3>
 
                 {loading ? (
-                    <div className="text-center py-8">Chargement...</div>
+                    <div className="text-center py-8">{t('list.loading')}</div>
                 ) : (
                     <div className="space-y-2">
                         {surgeons.length === 0 ? (
-                            <p className="text-gray-500 italic">Aucun membre enregistré.</p>
+                            <p className="text-gray-500 italic">{t('list.empty')}</p>
                         ) : (
                             surgeons.map((surgeon) => {
                                 const active = isLinked(surgeon.id);
@@ -166,17 +167,17 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
                                     <div key={surgeon.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded border border-gray-100">
                                         <div>
                                             <p className="font-bold text-gray-800">{surgeon.name}</p>
-                                            <p className="text-sm text-gray-500">{surgeon.specialty || 'Non spécifié'}</p>
+                                            <p className="text-sm text-gray-500">{surgeon.specialty || t('list.unspecified')}</p>
                                         </div>
                                         {currentEdition && (
                                             <button
                                                 onClick={() => active ? handleUnlinkSurgeon(surgeon) : handleLinkSurgeon(surgeon)}
                                                 className={`px-4 py-1.5 rounded text-sm font-medium transition ${active
-                                                        ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
-                                                        : 'bg-gray-200 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700'
+                                                    ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
+                                                    : 'bg-gray-200 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700'
                                                     }`}
                                             >
-                                                {active ? '✓ Assigné' : '+ Assigner'}
+                                                {active ? t('list.assigned') : t('list.assign')}
                                             </button>
                                         )}
                                     </div>

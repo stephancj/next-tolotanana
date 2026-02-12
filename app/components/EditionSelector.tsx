@@ -6,6 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Edition } from '@/lib/client-db';
 import { saveSelectedEdition } from '@/lib/edition-storage';
 import LoadingSpinner from './LoadingSpinner';
+import { useTranslations } from '../providers/I18nProvider';
 
 interface EditionSelectorProps {
     onSelect: (edition: Edition) => void;
@@ -14,6 +15,7 @@ interface EditionSelectorProps {
 
 export default function EditionSelector({ onSelect, onClose }: EditionSelectorProps) {
     const [isLoadingFromRemote, setIsLoadingFromRemote] = useState(false);
+    const t = useTranslations('editions.selector');
 
     // Charger toutes les éditions actives
     const editions = useLiveQuery(
@@ -34,7 +36,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                     if (res.ok) {
                         const remoteEditions = await res.json();
                         if (Array.isArray(remoteEditions) && remoteEditions.length > 0) {
-                            console.log(`📥 ${remoteEditions.length} éditions récupérées du serveur`);
+                            console.log(`📥 ${remoteEditions.length} ${t('retrieved')}`);
                             // Insert into local DB
                             await db.editions.bulkPut(remoteEditions.map((e: Partial<Edition>) => ({
                                 ...e,
@@ -53,7 +55,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
             };
             fetchRemote();
         }
-    }, [editions, isLoadingFromRemote]);
+    }, [editions, isLoadingFromRemote, t]);
 
     const handleSelectEdition = (edition: Edition) => {
         saveSelectedEdition(edition);
@@ -62,7 +64,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
     };
 
     if (!editions) {
-        return <LoadingSpinner message="Chargement des éditions..." />;
+        return <LoadingSpinner message={t('loading')} />;
     }
 
     return (
@@ -72,10 +74,10 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
                     <h2 className="text-2xl font-bold flex items-center gap-3">
                         <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain bg-white rounded-full p-1" />
-                        Sélectionner une Édition
+                        {t('title')}
                     </h2>
                     <p className="text-indigo-100 mt-2">
-                        Choisissez la mission médicale pour laquelle vous souhaitez travailler
+                        {t('description')}
                     </p>
                 </div>
 
@@ -85,8 +87,8 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                     <div className="space-y-3 mb-6">
                         {editions.length === 0 ? (
                             <div className="text-center py-8 text-gray-500">
-                                <p className="text-lg">Aucune édition disponible</p>
-                                <p className="text-sm mt-2">Veuillez synchroniser pour récupérer les éditions</p>
+                                <p className="text-lg">{t('noEditions')}</p>
+                                <p className="text-sm mt-2">{t('syncPrompt')}</p>
                             </div>
                         ) : (
                             editions.map((edition) => (

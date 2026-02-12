@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { calculateAge } from '@/lib/age-utils';
 import { MedicalRecord, Edition } from '@/lib/client-db';
 import { useSync } from '../hooks/useSync';
+import { useTranslations, useLocale } from '../providers/I18nProvider';
+import LanguageSwitcher from './LanguageSwitcher';
+import { Locale } from '@/lib/i18n-config';
 
 // Icons
 const Icons = {
@@ -123,6 +126,12 @@ interface FormState {
 export default function FicheMedicale({ initialData, currentEditionId, edition, onChangeEdition, onSuccess, onNew }: FicheMedicaleProps) {
     const { status, pendingCount, manualSync } = useSync();
     const [loading, setLoading] = useState(false);
+
+    // I18n Hooks
+    const t = useTranslations('form');
+    const tCommon = useTranslations('common');
+    const tEnums = useTranslations('enums'); // For days and other enums if needed directly
+    const locale = useLocale();
 
     const defaultState: FormState = {
         dossier_number: '',
@@ -278,10 +287,10 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
 
             if (savedId) {
                 await dbModule.db.medical_records.put({ ...recordToSave, id: savedId });
-                alert('Fiche mise à jour avec succès');
+                alert(t('messages.updateSuccess'));
             } else {
                 savedId = await dbModule.db.medical_records.add(recordToSave) as number;
-                alert('Fiche enregistrée avec succès (Mode Offline)');
+                alert(t('messages.saveSuccess'));
             }
 
 
@@ -292,7 +301,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
             }
         } catch (e) {
             console.error(e);
-            alert('Erreur lors de l\'enregistrement local');
+            alert(t('messages.saveError'));
         } finally {
             setLoading(false);
         }
@@ -312,21 +321,25 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
             <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-40 border-b border-indigo-50 px-6 py-4 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
                 <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Fandidiana Maimaimpoana</h2>
+                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
                         <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
                             <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain drop-shadow-md" />
-                            Fiche <span className="text-indigo-600">Médicale</span>
+                            {t('header.subtitle').split(' ')[0]} <span className="text-indigo-600">{t('header.subtitle').split(' ').slice(1).join(' ')}</span>
                         </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
+
+                        {/* Language Switcher */}
+                        <LanguageSwitcher />
+
                         {/* Sync Status */}
                         <div
                             onClick={manualSync}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
-                            title="Cliquez pour synchroniser"
+                            title={tCommon('clickToSync')}
                         >
                             <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            {status === 'syncing' ? 'SYNCHRO...' : status === 'offline' ? 'OFFLINE' : 'ONLINE'}
+                            {status === 'syncing' ? tCommon('syncing') : status === 'offline' ? tCommon('offline') : tCommon('online')}
                             {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
                         </div>
 
@@ -353,14 +366,14 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                     {/* DOSSIER */}
                     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 relative overflow-hidden group">
                         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-500"></div>
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">Numéro de Dossier</label>
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">{t('dossierNumber')}</label>
                         <input
                             type="text"
                             name="dossier_number"
                             value={formData.dossier_number}
                             onChange={handleChange}
                             className="w-full text-5xl font-black text-slate-800 placeholder-slate-200 bg-transparent border-none p-0 focus:ring-0"
-                            placeholder="#0000"
+                            placeholder={t('dossierPlaceholder')}
                         />
                     </div>
 
@@ -370,21 +383,21 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                             <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
                                 <Icons.User />
                             </div>
-                            <h3 className="text-lg font-bold text-slate-700">Identité du Patient</h3>
+                            <h3 className="text-lg font-bold text-slate-700">{t('identity.title')}</h3>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">
-                            <InputField label="Nom (Anarana)" name="last_name" value={formData.last_name} onChange={handleChange} />
-                            <InputField label="Prénom (Fanampin'anarana)" name="first_name" value={formData.first_name} onChange={handleChange} />
+                            <InputField label={t('identity.lastNameMalagasy')} name="last_name" value={formData.last_name} onChange={handleChange} />
+                            <InputField label={t('identity.firstNameMalagasy')} name="first_name" value={formData.first_name} onChange={handleChange} />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <InputField label="Date de Naissance" name="dob" type="date" value={formData.dob} onChange={handleDateChange} />
-                            <InputField label="Âge (Taona)" name="age" type="text" value={formData.age} onChange={handleChange} />
+                            <InputField label={t('identity.dob')} name="dob" type="date" value={formData.dob} onChange={handleDateChange} />
+                            <InputField label={t('identity.ageMalagasy')} name="age" type="text" value={formData.age} onChange={handleChange} />
                         </div>
 
                         <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block pl-1">Genre</label>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block pl-1">{t('identity.gender')}</label>
                             <div className="grid grid-cols-2 gap-3">
                                 {['M', 'F'].map((g) => (
                                     <button
@@ -396,7 +409,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                             : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'
                                             }`}
                                     >
-                                        {g === 'M' ? 'Masculin' : 'Féminin'}
+                                        {g === 'M' ? t('identity.male') : t('identity.female')}
                                     </button>
                                 ))}
                             </div>
@@ -409,22 +422,22 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                             <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                                 <Icons.Phone />
                             </div>
-                            <h3 className="text-lg font-bold text-slate-700">Contact</h3>
+                            <h3 className="text-lg font-bold text-slate-700">{t('contact.title')}</h3>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <InputField label="Tél 1" name="phone1" value={formData.phone1} onChange={handleChange} />
-                            <InputField label="Tél 2" name="phone2" value={formData.phone2} onChange={handleChange} />
+                            <InputField label={t('contact.phone1')} name="phone1" value={formData.phone1} onChange={handleChange} />
+                            <InputField label={t('contact.phone2')} name="phone2" value={formData.phone2} onChange={handleChange} />
                         </div>
-                        <InputField label="Adresse" name="address" value={formData.address} onChange={handleChange} />
+                        <InputField label={t('contact.address')} name="address" value={formData.address} onChange={handleChange} />
 
                         <div>
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block pl-1">Distance</label>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block pl-1">{t('contact.distance')}</label>
                             <div className="grid grid-cols-2 gap-3">
                                 {[
-                                    { value: 'en ville', label: 'En ville' },
-                                    { value: 'un peu loin', label: 'Un peu loin' },
-                                    { value: 'loin', label: 'Loin' },
-                                    { value: 'non précisé', label: 'Non précisé' }
+                                    { value: 'en ville', label: 'inCity' },
+                                    { value: 'un peu loin', label: 'nearby' },
+                                    { value: 'loin', label: 'far' },
+                                    { value: 'non précisé', label: 'unspecified' }
                                 ].map((option) => (
                                     <button
                                         key={option.value}
@@ -435,7 +448,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                             : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'
                                             }`}
                                     >
-                                        {option.label}
+                                        {tEnums(`distance.${option.label}`)}
                                     </button>
                                 ))}
                             </div>
@@ -448,13 +461,13 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
 
                     {/* VITALS */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <VitalCard label="Poids" name="weight" unit="kg" value={formData.weight} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
-                        <VitalCard label="Taille" name="height" unit="cm" value={formData.height} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
+                        <VitalCard label={t('vitals.weight')} name="weight" unit="kg" value={formData.weight} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
+                        <VitalCard label={t('vitals.height')} name="height" unit="cm" value={formData.height} icon={<Icons.Activity />} color="blue" onChange={handleChange} />
                         <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-4 rounded-2xl shadow-lg hover:shadow-xl transition-shadow relative overflow-hidden text-white">
                             <div className="absolute top-0 right-0 p-2 opacity-20">
                                 <Icons.Activity />
                             </div>
-                            <label className="text-xs font-bold text-indigo-200 uppercase tracking-wider block mb-1">IMC / BMI</label>
+                            <label className="text-xs font-bold text-indigo-200 uppercase tracking-wider block mb-1">{t('vitals.bmi')}</label>
                             <div className="flex items-baseline gap-1">
                                 <input
                                     name="bmi"
@@ -465,13 +478,13 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                 />
                             </div>
                         </div>
-                        <VitalCard label="Temp" name="temperature" unit="°C" value={formData.temperature} icon={<Icons.Activity />} color="orange" onChange={handleChange} />
+                        <VitalCard label={t('vitals.temp')} name="temperature" unit="°C" value={formData.temperature} icon={<Icons.Activity />} color="orange" onChange={handleChange} />
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <VitalCard label="Tension" name="blood_pressure" unit="mmHg" value={formData.blood_pressure} icon={<Icons.Heart />} color="red" onChange={handleChange} />
-                        <VitalCard label="Pouls" name="heart_rate" unit="bpm" value={formData.heart_rate} icon={<Icons.Heart />} color="red" onChange={handleChange} />
-                        <VitalCard label="Resp." name="respiratory_rate" unit="cpm" value={formData.respiratory_rate} icon={<Icons.Activity />} color="teal" onChange={handleChange} />
-                        <VitalCard label="SpO2" name="spo2" unit="%" value={formData.spo2} icon={<Icons.Activity />} color="cyan" onChange={handleChange} />
+                        <VitalCard label={t('vitals.bloodPressure')} name="blood_pressure" unit="mmHg" value={formData.blood_pressure} icon={<Icons.Heart />} color="red" onChange={handleChange} />
+                        <VitalCard label={t('vitals.pulse')} name="heart_rate" unit="bpm" value={formData.heart_rate} icon={<Icons.Heart />} color="red" onChange={handleChange} />
+                        <VitalCard label={t('vitals.respiration')} name="respiratory_rate" unit="cpm" value={formData.respiratory_rate} icon={<Icons.Activity />} color="teal" onChange={handleChange} />
+                        <VitalCard label={t('vitals.spo2')} name="spo2" unit="%" value={formData.spo2} icon={<Icons.Activity />} color="cyan" onChange={handleChange} />
                     </div>
 
                     {/* SURGICAL */}
@@ -480,25 +493,25 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                             <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-600">
                                 <Icons.Syringe />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-700">Consultation Chirurgicale</h3>
+                            <h3 className="text-xl font-bold text-slate-700">{t('surgical.title')}</h3>
                         </div>
 
                         <div className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Diagnostic Clinique</label>
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">{t('surgical.clinicalDiagnosis')}</label>
                                     <textarea
                                         name="clinical_diagnosis"
                                         value={formData.clinical_diagnosis}
                                         onChange={handleChange}
                                         className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl h-32 focus:bg-white focus:ring-2 focus:ring-rose-200 outline-none resize-none transition-all"
-                                        placeholder="Description du diagnostic..."
+                                        placeholder={t('surgical.clinicalDiagnosisPlaceholder')}
                                     />
                                 </div>
                                 <div className="space-y-4">
-                                    <InputField label="Type d'intervention" name="intervention_type" value={formData.intervention_type} onChange={handleChange} />
+                                    <InputField label={t('surgical.interventionType')} name="intervention_type" value={formData.intervention_type} onChange={handleChange} />
                                     <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                                        <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">À programmer ?</label>
+                                        <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">{t('surgical.toSchedule')}</label>
                                         <div className="flex gap-4">
                                             {[true, false].map(val => (
                                                 <label key={String(val)} className="flex items-center gap-2 cursor-pointer">
@@ -523,19 +536,26 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                         {/* PLANNING DAY SELECTOR */}
                                         {formData.program_mission && (
                                             <div className="mt-4 pt-4 border-t border-orange-200/50 animate-fadeIn">
-                                                <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">Jour Prévu</label>
+                                                <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">{t('surgical.plannedDay')}</label>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {['A définir', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => (
+                                                    {[
+                                                        { value: 'A définir', label: 'toDefine' },
+                                                        { value: 'Lundi', label: 'monday' },
+                                                        { value: 'Mardi', label: 'tuesday' },
+                                                        { value: 'Mercredi', label: 'wednesday' },
+                                                        { value: 'Jeudi', label: 'thursday' },
+                                                        { value: 'Vendredi', label: 'friday' }
+                                                    ].map(day => (
                                                         <button
-                                                            key={day}
+                                                            key={day.value}
                                                             type="button"
-                                                            onClick={() => setFormData(p => ({ ...p, planning_day: day }))}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day
+                                                            onClick={() => setFormData(p => ({ ...p, planning_day: day.value }))}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day.value
                                                                 ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
                                                                 : 'bg-white text-gray-500 border-orange-100 hover:border-orange-200 hover:bg-orange-50'
                                                                 }`}
                                                         >
-                                                            {day}
+                                                            {tEnums(`days.${day.label}`)}
                                                         </button>
                                                     ))}
                                                 </div>
@@ -545,13 +565,13 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Observation</label>
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">{t('surgical.observation')}</label>
                                 <textarea
                                     name="observation"
                                     value={formData.observation}
                                     onChange={handleChange}
                                     className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl h-24 focus:bg-white focus:ring-2 focus:ring-indigo-200 outline-none resize-none transition-all"
-                                    placeholder="Notes additionnelles..."
+                                    placeholder={t('surgical.observationPlaceholder')}
                                 />
                             </div>
                         </div>
@@ -561,13 +581,13 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                     {/* PRE-ANESTHESIA */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
-                            <h3 className="text-lg font-bold text-slate-700 mb-4">Antécédents</h3>
+                            <h3 className="text-lg font-bold text-slate-700 mb-4">{t('anesthesia.history')}</h3>
                             <div className="space-y-2">
                                 {([
-                                    { k: 'history_diabetes', l: 'Diabète' },
-                                    { k: 'history_hypertension', l: 'Hypertension' },
-                                    { k: 'history_asthma', l: 'Asthme' },
-                                    { k: 'history_cardiopathy', l: 'Cardiopathie' }
+                                    { k: 'history_diabetes', l: t('anesthesia.diabetes') },
+                                    { k: 'history_hypertension', l: t('anesthesia.hypertension') },
+                                    { k: 'history_asthma', l: t('anesthesia.asthma') },
+                                    { k: 'history_cardiopathy', l: t('anesthesia.cardiopathy') }
                                 ] as { k: string; l: string }[]).map((item) => (
                                     <label key={item.k} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-100">
                                         <span className="font-medium text-slate-600">{item.l}</span>
@@ -582,7 +602,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                                 ))}
                                 <input
                                     name="history_others"
-                                    placeholder="Autres..."
+                                    placeholder={t('anesthesia.othersPlaceholder')}
                                     value={formData.history_others}
                                     onChange={handleChange}
                                     className="w-full mt-2 p-3 bg-gray-50 rounded-xl border-none focus:ring-2 focus:ring-indigo-200 text-sm"
@@ -592,7 +612,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
 
                         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8 flex flex-col justify-between">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-700 mb-4">Score ASA</h3>
+                                <h3 className="text-lg font-bold text-slate-700 mb-4">{t('anesthesia.asaScore')}</h3>
                                 <div className="grid grid-cols-3 gap-3">
                                     {[1, 2, 3, 4, 5, 6].map(score => (
                                         <label key={score} className="cursor-pointer">
@@ -621,37 +641,41 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
 
                     {/* ANESTHESIA TYPE */}
                     <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
-                        <h3 className="text-lg font-bold text-slate-700 mb-6">Type d&apos;anesthésie</h3>
+                        <h3 className="text-lg font-bold text-slate-700 mb-6">{t('anesthesia.anesthesiaType')}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                            {['Locale', 'Locorégionale', 'Générale'].map((type) => (
-                                <label key={type} className="cursor-pointer group">
+                            {[
+                                { value: 'Locale', label: 'local' },
+                                { value: 'Locorégionale', label: 'regional' },
+                                { value: 'Générale', label: 'general' }
+                            ].map((type) => (
+                                <label key={type.value} className="cursor-pointer group">
                                     <input
                                         type="radio"
                                         name="anesthesia_type"
-                                        value={type}
-                                        checked={formData.anesthesia_type === type}
+                                        value={type.value}
+                                        checked={formData.anesthesia_type === type.value}
                                         onChange={handleChange}
                                         className="hidden"
                                     />
                                     <div className={`
                                         p-4 rounded-2xl border-2 transition-all text-center
-                                        ${formData.anesthesia_type === type
+                                        ${formData.anesthesia_type === type.value
                                             ? 'border-violet-500 bg-violet-50 text-violet-700 font-bold shadow-md'
                                             : 'border-slate-100 text-slate-500 hover:border-violet-200'}
                                     `}>
-                                        {type}
+                                        {t(`anesthesia.${type.label}`)}
                                     </div>
                                 </label>
                             ))}
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Observation Anesthésie</label>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">{t('anesthesia.anesthesiaObservation')}</label>
                             <textarea
                                 name="anesthesia_observation"
                                 value={formData.anesthesia_observation}
                                 onChange={handleChange}
                                 className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl h-24 focus:bg-white focus:ring-2 focus:ring-violet-200 outline-none resize-none transition-all"
-                                placeholder="Remarques..."
+                                placeholder={t('anesthesia.anesthesiaObservationPlaceholder')}
                             />
                         </div>
                     </div>
@@ -664,19 +688,19 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                 <div className="bg-slate-900/90 backdrop-blur-md text-white px-2 py-2 rounded-2xl shadow-2xl border border-slate-700/50 flex items-center gap-2 pointer-events-auto scale-90 md:scale-100 transform transition-transform">
                     <button onClick={() => document.dispatchEvent(new CustomEvent('switchTab', { detail: 'dashboard' }))} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
                         <span className="text-xl">🏠</span>
-                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Accueil</span>
+                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">{tCommon('home')}</span>
                     </button>
                     <div className="w-px h-8 bg-white/10"></div>
                     <button onClick={handleNew} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
                         <span className="text-xl">✨</span>
                         <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            {initialData ? 'Annuler Modif.' : 'Nouveau'}
+                            {initialData ? tCommon('cancel') : tCommon('new')}
                         </span>
                     </button>
                     <div className="w-px h-8 bg-white/10"></div>
                     <button onClick={() => document.dispatchEvent(new CustomEvent('switchTab', { detail: 'list' }))} className="p-4 hover:bg-white/10 rounded-xl transition-colors group relative">
                         <span className="text-xl">📂</span>
-                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Liste</span>
+                        <span className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">{tCommon('list')}</span>
                     </button>
                     <div className="w-px h-8 bg-white/10"></div>
                     <button
@@ -685,7 +709,7 @@ export default function FicheMedicale({ initialData, currentEditionId, edition, 
                         className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-900/30 font-bold transition-all flex items-center gap-3 active:scale-95 mx-2"
                     >
                         {loading ? <span className="animate-spin">⏳</span> : <Icons.Save />}
-                        <span>Enregistrer</span>
+                        <span>{tCommon('save')}</span>
                     </button>
                 </div>
             </div>

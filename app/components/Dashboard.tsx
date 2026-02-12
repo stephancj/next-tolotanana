@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Edition, MedicalRecord } from '@/lib/client-db';
 import LoadingSpinner from './LoadingSpinner';
+import LanguageSwitcher from './LanguageSwitcher';
+import { useTranslations, useLocale } from '../providers/I18nProvider';
+import { translateDay, translateDistance } from '@/lib/enum-translations';
+import { Locale } from '@/lib/i18n-config';
 
 // Icons
 const Icons = {
@@ -15,7 +19,7 @@ const Icons = {
 
 interface DashboardProps {
     currentEdition: Edition | null;
-    onNavigate: (view: 'form' | 'list' | 'surgeons' | 'planning') => void;
+    onNavigate: (view: 'form' | 'list' | 'surgeons' | 'planning' | 'workflow') => void;
     onEdit: (record: MedicalRecord) => void;
 }
 
@@ -23,6 +27,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
     const [records, setRecords] = useState<MedicalRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const t = useTranslations('dashboard');
+    const tCommon = useTranslations('common');
+    const tEnums = useTranslations('enums');
+    const locale = useLocale() as Locale;
 
     const fetchData = useCallback(async () => {
         if (!currentEdition?.public_id) {
@@ -96,8 +104,8 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
         const femalePending = female - femaleProgrammed;
 
         // Stats by Origin/Distance (with detailed breakdown)
-        const local = records.filter(r => r.distance === 'en ville').length;
-        const localProgrammed = records.filter(r => r.distance === 'en ville' && r.program_mission === 1).length;
+        const local = records.filter(r => r.distance === 'en ville' || r.distance === 'En ville').length;
+        const localProgrammed = records.filter(r => (r.distance === 'en ville' || r.distance === 'En ville') && r.program_mission === 1).length;
         const localPending = local - localProgrammed;
 
         const nearby = records.filter(r => r.distance === 'un peu loin').length;
@@ -133,7 +141,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
     }, [records, loading]);
 
     if (loading && records.length === 0) {
-        return <LoadingSpinner message="Chargement du tableau de bord..." />;
+        return <LoadingSpinner message={tCommon('loading')} />;
     }
 
     // Default stats object to prevent crashes if stats is null (though loading check handles most)
@@ -153,27 +161,28 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
 
             {refreshing && (
                 <div className="absolute top-4 right-4 z-50 bg-white/80 px-3 py-1 rounded-full text-xs font-bold text-indigo-600 border border-indigo-100 shadow-sm animate-pulse">
-                    Actualisation...
+                    {tCommon('refreshing')}
                 </div>
             )}
 
             {/* HEADER */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-indigo-50 pb-6">
                 <div>
-                    <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Tableau de Bord</h2>
+                    <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
                     <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                        📊 Synthèse de la Mission
+                        📊 {t('header.subtitle')}
                     </h1>
                     <p className="text-gray-500 mt-1">
-                        {currentEdition ? `${currentEdition.name} - ${currentEdition.place} ${currentEdition.year}` : 'Aucune édition sélectionnée'}
+                        {currentEdition ? `${currentEdition.name} - ${currentEdition.place} ${currentEdition.year}` : t('header.noEdition')}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
+                    <LanguageSwitcher />
                     <button
                         onClick={() => fetchData()}
                         disabled={refreshing}
                         className="bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2"
-                        title="Actualiser les données"
+                        title={tCommon('refresh')}
                     >
                         <span className={`${refreshing ? 'animate-spin' : ''}`}>🔄</span>
                     </button>
@@ -181,25 +190,31 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         onClick={() => onNavigate('surgeons')}
                         className="bg-white text-emerald-600 px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-50 transition border border-emerald-100 flex items-center gap-2"
                     >
-                        <span>🩺</span> Équipe
+                        <span>🩺</span> {t('buttons.team')}
                     </button>
                     <button
                         onClick={() => onNavigate('planning')}
                         className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition border border-blue-100 flex items-center gap-2"
                     >
-                        <span>📅</span> Planning
+                        <span>📅</span> {t('buttons.planning')}
+                    </button>
+                    <button
+                        onClick={() => onNavigate('workflow')}
+                        className="bg-white text-purple-600 px-5 py-2.5 rounded-xl font-bold hover:bg-purple-50 transition border border-purple-100 flex items-center gap-2"
+                    >
+                        <span>⚡</span> {t('buttons.workflow')}
                     </button>
                     <button
                         onClick={() => onNavigate('list')}
                         className="bg-white text-indigo-600 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 transition border border-indigo-100 flex items-center gap-2"
                     >
-                        <span>📂</span> Liste
+                        <span>📂</span> {t('buttons.list')}
                     </button>
                     <button
                         onClick={() => onNavigate('form')}
                         className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2"
                     >
-                        <span>✚</span> Nouveau
+                        <span>✚</span> {t('buttons.new')}
                     </button>
                 </div>
             </div>
@@ -214,10 +229,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
                     </div>
                     <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Total Patients</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.totalPatients')}</p>
                         <h3 className="text-4xl font-black text-slate-800">{s.total}</h3>
                         <p className="text-green-600 text-sm font-bold mt-2 flex items-center gap-1">
-                            <span className="bg-green-100 px-1.5 py-0.5 rounded text-xs">+{s.createdToday}</span> aujourd&apos;hui
+                            <span className="bg-green-100 px-1.5 py-0.5 rounded text-xs">+{s.createdToday}</span> {tCommon('today')}
                         </p>
                     </div>
                 </div>
@@ -227,10 +242,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
                     </div>
                     <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Programmés</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.programmed')}</p>
                         <h3 className="text-4xl font-black text-emerald-600">{s.programmed}</h3>
                         <p className="text-slate-400 text-sm font-medium mt-2">
-                            Patients validés
+                            {t('stats.programmedPatients')}
                         </p>
                     </div>
                 </div>
@@ -240,10 +255,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"></path></svg>
                     </div>
                     <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">Pas Programmé</p>
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.notProgrammed')}</p>
                         <h3 className="text-4xl font-black text-orange-500">{s.pending}</h3>
                         <p className="text-slate-400 text-sm font-medium mt-2">
-                            Non programmés
+                            {t('stats.notProgrammedPlural')}
                         </p>
                     </div>
                 </div>
@@ -253,10 +268,10 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"></path></svg>
                     </div>
                     <div className="relative">
-                        <p className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-1">Taux Remplissage</p>
+                        <p className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-1">{t('stats.fillRate')}</p>
                         <h3 className="text-4xl font-black">{s.total > 0 ? Math.round((s.programmed / s.total) * 100) : 0}%</h3>
                         <p className="text-indigo-200 text-sm font-medium mt-2">
-                            des patients sont programmés
+                            {t('stats.patientsScheduled')}
                         </p>
                     </div>
                 </div>
@@ -270,14 +285,14 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                             <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg"><Icons.Calendar /></span>
-                            Planning Opératoire
+                            {t('planning.title')}
                         </h3>
                     </div>
                     <div className="space-y-4">
                         {s.byDay.map((day) => (
                             <div key={day.name} className="relative">
                                 <div className="flex justify-between items-center mb-1 text-sm font-bold">
-                                    <span className="text-slate-600">{day.name}</span>
+                                    <span className="text-slate-600">{translateDay(day.name, locale)}</span>
                                     <span className="text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full">{day.count} patients</span>
                                 </div>
                                 <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
@@ -290,7 +305,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                         ))}
                         {s.programmed === 0 && (
                             <div className="text-center py-8 text-gray-400 text-sm italic">
-                                Aucun patient programmé pour le moment
+                                {t('planning.noPatients')}
                             </div>
                         )}
                     </div>
@@ -301,7 +316,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                         <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
                             <span className="p-2 bg-pink-50 text-pink-600 rounded-lg"><Icons.Users /></span>
-                            Par Genre
+                            {t('gender.title')}
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Hommes */}
@@ -310,14 +325,14 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                     <span className="text-4xl">👨</span>
                                     <span className="font-black text-blue-900 text-3xl">{s.male}</span>
                                 </div>
-                                <div className="text-sm font-bold text-blue-800 mb-3">HOMMES</div>
+                                <div className="text-sm font-bold text-blue-800 mb-3">{t('gender.men')}</div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-blue-700">✓ Programmés</span>
+                                        <span className="text-xs font-medium text-blue-700">✓ {t('gender.programmed')}</span>
                                         <span className="font-bold text-blue-900">{s.maleProgrammed}</span>
                                     </div>
                                     <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-blue-700">⏳ Pas programmés</span>
+                                        <span className="text-xs font-medium text-blue-700">⏳ {t('gender.notProgrammed')}</span>
                                         <span className="font-bold text-blue-900">{s.malePending}</span>
                                     </div>
                                 </div>
@@ -329,14 +344,14 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                     <span className="text-4xl">👩</span>
                                     <span className="font-black text-pink-900 text-3xl">{s.female}</span>
                                 </div>
-                                <div className="text-sm font-bold text-pink-800 mb-3">FEMMES</div>
+                                <div className="text-sm font-bold text-pink-800 mb-3">{t('gender.women')}</div>
                                 <div className="space-y-2">
                                     <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-pink-700">✓ Programmées</span>
+                                        <span className="text-xs font-medium text-pink-700">✓ {t('gender.programmedFemale')}</span>
                                         <span className="font-bold text-pink-900">{s.femaleProgrammed}</span>
                                     </div>
                                     <div className="flex justify-between items-center bg-white/60 px-3 py-2 rounded-lg">
-                                        <span className="text-xs font-medium text-pink-700">⏳ Pas programmées</span>
+                                        <span className="text-xs font-medium text-pink-700">⏳ {t('gender.notProgrammedFemale')}</span>
                                         <span className="font-bold text-pink-900">{s.femalePending}</span>
                                     </div>
                                 </div>
@@ -348,7 +363,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                         <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
                             <span className="p-2 bg-orange-50 text-orange-600 rounded-lg"><Icons.Chart /></span>
-                            Provenance
+                            {t('origin.title')}
                         </h3>
                         <div className="space-y-3">
                             {/* En ville */}
@@ -356,13 +371,13 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xl">🏙️</span>
-                                        <span className="font-bold text-green-900">En ville</span>
+                                        <span className="font-bold text-green-900">{translateDistance('en ville', locale)}</span>
                                     </div>
                                     <span className="font-black text-green-900 text-xl">{s.local}</span>
                                 </div>
                                 <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">✓ {s.localProgrammed} programmés</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">⏳ {s.localPending} pas programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">✓ {s.localProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-green-700">⏳ {s.localPending} {t('gender.notProgrammed').toLowerCase()}</span>
                                 </div>
                             </div>
 
@@ -371,13 +386,13 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xl">🚗</span>
-                                        <span className="font-bold text-yellow-900">Un peu loin</span>
+                                        <span className="font-bold text-yellow-900">{translateDistance('un peu loin', locale)}</span>
                                     </div>
                                     <span className="font-black text-yellow-900 text-xl">{s.nearby}</span>
                                 </div>
                                 <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">✓ {s.nearbyProgrammed} programmés</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">⏳ {s.nearbyPending} pas programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">✓ {s.nearbyProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-yellow-700">⏳ {s.nearbyPending} {t('gender.notProgrammed').toLowerCase()}</span>
                                 </div>
                             </div>
 
@@ -386,13 +401,13 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         <span className="text-xl">✈️</span>
-                                        <span className="font-bold text-red-900">Loin</span>
+                                        <span className="font-bold text-red-900">{translateDistance('loin', locale)}</span>
                                     </div>
                                     <span className="font-black text-red-900 text-xl">{s.far}</span>
                                 </div>
                                 <div className="flex gap-2 text-xs">
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">✓ {s.farProgrammed} programmés</span>
-                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">⏳ {s.farPending} pas programmés</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">✓ {s.farProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                    <span className="bg-white px-2 py-1 rounded font-medium text-red-700">⏳ {s.farPending} {t('gender.notProgrammed').toLowerCase()}</span>
                                 </div>
                             </div>
 
@@ -402,13 +417,13 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <span className="text-xl">❓</span>
-                                            <span className="font-bold text-gray-900">Non précisé</span>
+                                            <span className="font-bold text-gray-900">{translateDistance('non précisé', locale)}</span>
                                         </div>
                                         <span className="font-black text-gray-900 text-xl">{s.unspecified}</span>
                                     </div>
                                     <div className="flex gap-2 text-xs">
-                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">✓ {s.unspecifiedProgrammed} programmés</span>
-                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">⏳ {s.unspecifiedPending} pas programmés</span>
+                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">✓ {s.unspecifiedProgrammed} {t('gender.programmed').toLowerCase()}</span>
+                                        <span className="bg-white px-2 py-1 rounded font-medium text-gray-700">⏳ {s.unspecifiedPending} {t('gender.notProgrammed').toLowerCase()}</span>
                                     </div>
                                 </div>
                             )}
@@ -421,7 +436,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     <div className="p-6 border-b border-gray-50 flex justify-between items-center">
                         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
                             <span className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Icons.Clock /></span>
-                            Derniers Inscrits
+                            {t('recentPatients.title')}
                         </h3>
                     </div>
                     <div className="p-4">
@@ -435,7 +450,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                     >
                                         {/* Dossier Number */}
                                         <div className="flex-shrink-0 w-16">
-                                            <div className="text-xs font-bold text-gray-400 uppercase mb-1">Dossier</div>
+                                            <div className="text-xs font-bold text-gray-400 uppercase mb-1">{t('recentPatients.dossier')}</div>
                                             <div className="font-black text-slate-800 text-sm">{r.dossier_number || '-'}</div>
                                         </div>
 
@@ -448,7 +463,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                                 <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${r.gender === 'M' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
                                                     {r.gender}
                                                 </span>
-                                                <span className="text-xs text-gray-500">{r.age} ans</span>
+                                                <span className="text-xs text-gray-500">{r.age} {t('form.identity.ageMalagasy').split(' ')[0].replace('Âge', 'ans')}</span>
                                             </div>
                                             <div className="flex items-center gap-3 text-xs text-gray-500">
                                                 <span className="flex items-center gap-1">
@@ -468,11 +483,11 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                                         <div className="flex-shrink-0">
                                             {r.program_mission ? (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Programmé
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {t('recentPatients.programmed')}
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Pas Programmé
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span> {t('recentPatients.notProgrammed')}
                                                 </span>
                                             )}
                                         </div>
@@ -481,7 +496,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                             </div>
                         ) : (
                             <div className="py-12 text-center text-gray-400 italic">
-                                Aucune donnée récente
+                                {t('recentPatients.noData')}
                             </div>
                         )}
                     </div>

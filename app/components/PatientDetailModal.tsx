@@ -1,6 +1,7 @@
 'use client';
 
 import { MedicalRecord } from '@/lib/client-db';
+import { useTranslations } from '../providers/I18nProvider';
 
 interface PatientDetailModalProps {
     record: MedicalRecord;
@@ -14,13 +15,13 @@ const AgeDisplay = ({ age }: { age: string | number }) => {
     let bgColor = 'bg-gray-100';
     let textColor = 'text-gray-700';
 
-    if (ageStr.includes('semaine')) {
+    if (ageStr.includes('semaine') || ageStr.includes('week')) {
         bgColor = 'bg-pink-100';
         textColor = 'text-pink-700';
-    } else if (ageStr.includes('mois')) {
+    } else if (ageStr.includes('mois') || ageStr.includes('month')) {
         bgColor = 'bg-purple-100';
         textColor = 'text-purple-700';
-    } else if (ageStr.includes('an')) {
+    } else if (ageStr.includes('an') || ageStr.includes('year')) {
         bgColor = 'bg-indigo-100';
         textColor = 'text-indigo-700';
     }
@@ -42,7 +43,15 @@ function DetailItem({ label, value, className = '' }: { label: string; value?: s
 }
 
 export default function PatientDetailModal({ record, onClose }: PatientDetailModalProps) {
+    const t = useTranslations('patient');
+
     if (!record) return null;
+
+    const getGenderLabel = (g: string) => {
+        if (g === 'M') return t('values.male');
+        if (g === 'F') return t('values.female');
+        return g;
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={onClose}>
@@ -68,50 +77,50 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                     {/* Informations personnelles */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span className="text-indigo-600">👤</span> Informations Personnelles
+                            <span className="text-indigo-600">👤</span> {t('sections.personal')}
                         </h3>
                         <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
-                            <DetailItem label="Date de naissance" value={record.dob} />
+                            <DetailItem label={t('fields.dob')} value={record.dob} />
                             <div className="flex flex-col">
-                                <span className="text-xs font-semibold text-gray-500 mb-1">Âge</span>
+                                <span className="text-xs font-semibold text-gray-500 mb-1">{t('fields.age')}</span>
                                 <AgeDisplay age={record.age} />
                             </div>
-                            <DetailItem label="Genre" value={record.gender === 'M' ? 'Masculin' : record.gender === 'F' ? 'Féminin' : record.gender} />
-                            <DetailItem label="Téléphone" value={[record.phone1, record.phone2].filter(Boolean).join(' / ') || 'N/A'} />
-                            <DetailItem label="Adresse" value={record.address} className="col-span-2" />
-                            <DetailItem label="Distance" value={record.distance || 'non précisé'} />
+                            <DetailItem label={t('fields.gender')} value={getGenderLabel(record.gender)} />
+                            <DetailItem label={t('fields.phone')} value={[record.phone1, record.phone2].filter(Boolean).join(' / ') || 'N/A'} />
+                            <DetailItem label={t('fields.address')} value={record.address} className="col-span-2" />
+                            <DetailItem label={t('fields.distance')} value={record.distance || t('values.unspecified')} />
                         </div>
                     </div>
 
                     {/* Paramètres médicaux */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span className="text-red-600">❤️</span> Paramètres Médicaux
+                            <span className="text-red-600">❤️</span> {t('sections.medical')}
                         </h3>
                         <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
-                            <DetailItem label="Poids" value={`${record.weight || '?'} kg`} />
-                            <DetailItem label="Taille" value={`${record.height || '?'} cm`} />
-                            <DetailItem label="IMC" value={record.bmi?.toString() || '?'} />
-                            <DetailItem label="Tension" value={record.blood_pressure || 'N/A'} />
-                            <DetailItem label="Température" value={`${record.temperature || '?'} °C`} />
-                            <DetailItem label="Pouls" value={`${record.heart_rate || '?'} bpm`} />
-                            <DetailItem label="Resp." value={`${record.respiratory_rate || '?'} cpm`} />
-                            <DetailItem label="SpO2" value={`${record.spo2 || '?'} %`} />
+                            <DetailItem label={t('fields.weight')} value={`${record.weight || '?'} kg`} />
+                            <DetailItem label={t('fields.height')} value={`${record.height || '?'} cm`} />
+                            <DetailItem label={t('fields.bmi')} value={record.bmi?.toString() || '?'} />
+                            <DetailItem label={t('fields.bloodPressure')} value={record.blood_pressure || 'N/A'} />
+                            <DetailItem label={t('fields.temperature')} value={`${record.temperature || '?'} °C`} />
+                            <DetailItem label={t('fields.pulse')} value={`${record.heart_rate || '?'} bpm`} />
+                            <DetailItem label={t('fields.respiratoryRate')} value={`${record.respiratory_rate || '?'} cpm`} />
+                            <DetailItem label={t('fields.spo2')} value={`${record.spo2 || '?'} %`} />
                         </div>
                     </div>
 
                     {/* Consultation chirurgicale */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span className="text-rose-600">🏥</span> Consultation Chirurgicale
+                            <span className="text-rose-600">🏥</span> {t('sections.surgical')}
                         </h3>
                         <div className="bg-gray-50 p-4 rounded-xl space-y-3">
-                            <DetailItem label="Diagnostic clinique" value={record.clinical_diagnosis || 'N/A'} />
-                            <DetailItem label="Type d'intervention" value={record.intervention_type || 'N/A'} />
-                            <DetailItem label="Observation" value={record.observation || 'N/A'} />
-                            <DetailItem label="À programmer" value={record.program_mission ? 'Oui' : 'Non'} />
+                            <DetailItem label={t('fields.clinicalDiagnosis')} value={record.clinical_diagnosis || 'N/A'} />
+                            <DetailItem label={t('fields.interventionType')} value={record.intervention_type || 'N/A'} />
+                            <DetailItem label={t('fields.observation')} value={record.observation || 'N/A'} />
+                            <DetailItem label={t('fields.programmed')} value={record.program_mission ? t('values.yes') : t('values.no')} />
                             {record.program_mission === 1 && (
-                                <DetailItem label="Jour Prévu" value={record.planning_day || 'A définir'} className="text-orange-600" />
+                                <DetailItem label={t('fields.planningDay')} value={record.planning_day || t('values.toBeDefined')} className="text-orange-600" />
                             )}
                         </div>
                     </div>
@@ -119,25 +128,25 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                     {/* Antécédents */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                            <span className="text-amber-600">📋</span> Antécédents
+                            <span className="text-amber-600">📋</span> {t('sections.history')}
                         </h3>
                         <div className="bg-gray-50 p-4 rounded-xl">
                             <div className="flex flex-wrap gap-2 mb-3">
-                                {record.history_diabetes === 1 && <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">Diabète</span>}
-                                {record.history_hypertension === 1 && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">Hypertension</span>}
-                                {record.history_asthma === 1 && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">Asthme</span>}
-                                {record.history_cardiopathy === 1 && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">Cardiopathie</span>}
-                                {record.history_none === 1 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">Aucun connu</span>}
+                                {record.history_diabetes === 1 && <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">{t('history.diabetes')}</span>}
+                                {record.history_hypertension === 1 && <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-semibold">{t('history.hypertension')}</span>}
+                                {record.history_asthma === 1 && <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">{t('history.asthma')}</span>}
+                                {record.history_cardiopathy === 1 && <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold">{t('history.cardiopathy')}</span>}
+                                {record.history_none === 1 && <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">{t('history.none')}</span>}
                             </div>
                             {record.history_others && (
-                                <DetailItem label="Autres antécédents" value={record.history_others} />
+                                <DetailItem label={t('fields.historyOthers')} value={record.history_others} />
                             )}
                             <div className="grid grid-cols-2 gap-4 mt-3">
-                                <DetailItem label="Score ASA" value={record.asa_score?.toString() || 'N/A'} />
-                                <DetailItem label="Type d'anesthésie" value={record.anesthesia_type || 'N/A'} />
+                                <DetailItem label={t('fields.asaScore')} value={record.asa_score?.toString() || 'N/A'} />
+                                <DetailItem label={t('fields.anesthesiaType')} value={record.anesthesia_type || 'N/A'} />
                             </div>
                             {record.anesthesia_observation && (
-                                <DetailItem label="Observation anesthésie" value={record.anesthesia_observation} className="mt-3" />
+                                <DetailItem label={t('fields.anesthesiaObservation')} value={record.anesthesia_observation} className="mt-3" />
                             )}
                         </div>
                     </div>

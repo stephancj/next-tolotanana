@@ -1,0 +1,450 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "back": "Retour",
+    "home": "Accueil",
+    "new": "Nouveau",
+    "list": "Liste",
+    "saving": "Enregistrement...",
+    "refreshing": "Actualisation...",
+    "refresh": "Actualiser les données",
+    "today": "aujourd'hui",
+    "clickToSync": "Cliquez pour synchroniser",
+    "syncing": "SYNCHRO...",
+    "offline": "OFFLINE",
+    "online": "ONLINE"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Tableau de Bord",
+      "subtitle": "Synthèse de la Mission"
+    },
+    "stats": {
+      "totalPatients": "Total Patients",
+      "programmed": "Programmés",
+      "programmées": "Programmées",
+      "programmedPatients": "Patients validés",
+      "notProgrammed": "Pas Programmé",
+      "notProgrammedPlural": "Non programmés",
+      "notProgrammedeFemale": "Pas programmées",
+      "fillRate": "Taux Remplissage",
+      "patientsScheduled": "des patients sont programmés"
+    },
+    "planning": {
+      "title": "Planning Opératoire",
+      "noPatients": "Aucun patient programmé pour le moment"
+    },
+    "gender": {
+      "title": "Par Genre",
+      "men": "HOMMES",
+      "women": "FEMMES",
+      "programmed": "Programmés",
+      "programmedFemale": "Programmées",
+      "notProgrammed": "Pas programmés",
+      "notProgrammedFemale": "Pas programmées"
+    },
+    "origin": {
+      "title": "Provenance"
+    },
+    "recentPatients": {
+      "title": "Derniers Inscrits",
+      "noData": "Aucune donnée récente",
+      "dossier": "Dossier",
+      "programmed": "Programmé",
+      "notProgrammed": "Pas Programmé"
+    },
+    "buttons": {
+      "team": "Équipe",
+      "planning": "Planning",
+      "workflow": "Workflow",
+      "list": "Liste",
+      "new": "Nouveau"
+    }
+  },
+  "form": {
+    "header": {
+      "title": "Fandidiana Maimaimpoana",
+      "subtitle": "Fiche Médicale"
+    },
+    "dossierNumber": "Numéro de Dossier",
+    "dossierPlaceholder": "#0000",
+    "identity": {
+      "title": "Identité du Patient",
+      "lastName": "Nom",
+      "lastNameMalagasy": "Nom (Anarana)",
+      "firstName": "Prénom",
+      "firstNameMalagasy": "Prénom (Fanampin'anarana)",
+      "dob": "Date de Naissance",
+      "age": "Âge",
+      "ageMalagasy": "Âge (Taona)",
+      "gender": "Genre",
+      "male": "Masculin",
+      "female": "Féminin"
+    },
+    "contact": {
+      "title": "Contact",
+      "phone1": "Tél 1",
+      "phone2": "Tél 2",
+      "address": "Adresse",
+      "distance": "Distance"
+    },
+    "vitals": {
+      "weight": "Poids",
+      "height": "Taille",
+      "bmi": "IMC / BMI",
+      "temp": "Temp",
+      "bloodPressure": "Tension",
+      "pulse": "Pouls",
+      "respiration": "Resp.",
+      "spo2": "SpO2"
+    },
+    "surgical": {
+      "title": "Consultation Chirurgicale",
+      "clinicalDiagnosis": "Diagnostic Clinique",
+      "clinicalDiagnosisPlaceholder": "Description du diagnostic...",
+      "interventionType": "Type d'intervention",
+      "toSchedule": "À programmer ?",
+      "plannedDay": "Jour Prévu",
+      "observation": "Observation",
+      "observationPlaceholder": "Notes et observations..."
+    },
+    "anesthesia": {
+      "title": "Consultation Pré-Anesthésique",
+      "history": "Antécédents",
+      "diabetes": "Diabète",
+      "hypertension": "Hypertension",
+      "asthma": "Asthme",
+      "cardiopathy": "Cardiopathie",
+      "none": "Aucun",
+      "others": "Autres",
+      "othersPlaceholder": "Précisez...",
+      "asaScore": "Score ASA",
+      "anesthesiaType": "Type d'anesthésie",
+      "local": "Locale",
+      "regional": "Locorégionale",
+      "general": "Générale",
+      "sedation": "Sédation",
+      "anesthesiaObservation": "Observation Anesthésie",
+      "anesthesiaObservationPlaceholder": "Notes spécifiques..."
+    },
+    "messages": {
+      "saveSuccess": "Fiche enregistrée avec succès (Mode Offline)",
+      "updateSuccess": "Fiche mise à jour avec succès",
+      "saveError": "Erreur lors de l'enregistrement local"
+    }
+  },
+  "operations": {
+    "header": {
+      "title": "Bloc Opératoire"
+    },
+    "tabs": {
+      "preOp": "Pré-Opératoire",
+      "bloc": "Bloc & Intervention",
+      "postOp": "Post-Op & Sortie"
+    },
+    "preOp": {
+      "responsible": "Responsable Pré-Op",
+      "callCompleted": "Appel Pré-Opératoire Effectué",
+      "callDescription": "Confirmation téléphonique de la venue du patient (la veille)",
+      "validatedOn": "Validé le",
+      "presenceCheck": "Checking Présence J-0",
+      "presenceDescription": "Le patient est physiquement présent et prêt (Dossier complet)"
+    },
+    "bloc": {
+      "entry": "Entrée au Bloc",
+      "entryDescription": "Enregistrez l'heure d'arrivée du patient au bloc",
+      "entryTime": "Heure d'entrée",
+      "interventionDetails": "Détails Intervention",
+      "category": "Catégorie",
+      "operativeReport": "Compte-rendu Opératoire",
+      "procedurePlaceholder": "Geste effectué...",
+      "team": "Équipe",
+      "noSurgeons": "Aucun chirurgien configuré",
+      "exit": "Sortie du Bloc",
+      "exitTime": "Heure de fin d'intervention"
+    },
+    "prescription": {
+      "title": "Ordonnance & Pharmacie",
+      "detailsPlaceholder": "Liste des médicaments et consignes...",
+      "pharmacyStatus": "Statut Pharmacie"
+    },
+    "postOp": {
+      "responsible": "Responsable Post-Op",
+      "recoveryRoom": "Salle de Réveil",
+      "patientSetup": "Installation du patient",
+      "room": "Salle N°",
+      "bed": "Lit N°",
+      "setupTime": "Heure d'installation",
+      "finalDischarge": "Sortie Définitive",
+      "dischargeTitle": "Clôture du dossier",
+      "dischargeTime": "Heure de sortie",
+      "dischargeNotes": "Notes de sortie / Consignes",
+      "dischargeNotesPlaceholder": "Observations finales, état du patient à la sortie..."
+    },
+    "messages": {
+      "saveSuccess": "✓ Données du bloc enregistrées avec succès",
+      "saveError": "Erreur lors de l'enregistrement"
+    }
+  },
+  "planning": {
+    "title": "Planning Opératoire",
+    "subtitle": "Semaine Chirurgicale",
+    "loading": "Chargement du planning...",
+    "totalScheduled": "patient(s) programmé(s) au total",
+    "unassigned": "sans jour assigné",
+    "noOperations": "Aucune opération programmée",
+    "noOperationsForDay": "Aucune intervention pour {day}",
+    "howToAdd": "Pour ajouter des patients au planning :",
+    "otherDays": "Les {count} patient(s) programmé(s) sont sur d'autres jours",
+    "instructions": {
+      "step1": "Créez un nouveau patient depuis le Dashboard",
+      "step2": "Cochez \"À programmer\" dans le formulaire",
+      "step3": "Sélectionnez un jour de la semaine"
+    },
+    "card": {
+      "diagnosis": "Diagnostic",
+      "interventionType": "Type d'intervention",
+      "preOpChecked": "Patient vérifié en pré-opératoire",
+      "blocDataSaved": "Données du bloc enregistrées",
+      "entry": "Entrée",
+      "exit": "Sortie",
+      "edit": "Modifier",
+      "enterBloc": "Saisir bloc"
+    }
+  },
+  "list": {
+    "header": {
+      "database": "Base de Données",
+      "patientsList": "Liste des Patients",
+      "local": "Local (SQLite)",
+      "remote": "Serveur (Neon)",
+      "offlineTitle": "Liste des Patients (Hors ligne)",
+      "savedTitle": "Liste des Patients (Sauvegardés)"
+    },
+    "buttons": {
+      "export": "Exporter CSV",
+      "filters": "Filtres",
+      "viewDetails": "Voir les détails"
+    },
+    "search": {
+      "placeholder": "Rechercher (Nom, Prénom, Dossier, Adresse...)",
+      "results": "{count} résultat(s) trouvé(s)",
+      "advanced": {
+        "title": "Filtres Avancés",
+        "reset": "Réinitialiser",
+        "where": "OÙ",
+        "and": "ET",
+        "valuePlaceholder": "Valeur...",
+        "deleteFilter": "Supprimer ce filtre",
+        "addFilter": "Ajouter un filtre",
+        "fields": {
+          "all": "Tout (Recherche globale)",
+          "dossier_number": "N° Dossier",
+          "last_name": "Nom",
+          "first_name": "Prénom",
+          "age": "Âge",
+          "gender": "Genre",
+          "address": "Adresse",
+          "clinical_diagnosis": "Diagnostic",
+          "intervention_type": "Intervention",
+          "planning_day": "Jour Prévu",
+          "program_mission": "Programmé",
+          "distance": "Distance"
+        },
+        "operators": {
+          "contains": "Contient",
+          "equals": "Est égal à",
+          "starts_with": "Commence par",
+          "ends_with": "Finit par",
+          "gt": "Supérieur à (>)",
+          "lt": "Inférieur à (<)"
+        }
+      }
+    },
+    "empty": {
+      "local": "Aucun dossier local. Commencez par en créer un.",
+      "remote": "Aucun dossier sur le serveur."
+    },
+    "table": {
+      "dossier": "N° Dossier",
+      "patient": "Patient",
+      "age": "Âge",
+      "distance": "Distance",
+      "diagnosis": "Diagnostic",
+      "plannedDay": "Jour Prévu",
+      "status": "Statut",
+      "actions": "Actions",
+      "programmed": "Programmé",
+      "notProgrammed": "Non programmé",
+      "synced": "Sync",
+      "pending": "En attente",
+      "unknown": "Inconnu",
+      "na": "N/A"
+    },
+    "delete": {
+      "confirm": "Voulez-vous vraiment supprimer le dossier de {name} ?",
+      "error": "Erreur lors de la suppression."
+    }
+  },
+  "editions": {
+    "indicator": {
+      "active": "Édition Active",
+      "change": "Changer d'édition",
+      "daysRemaining": "{days}j"
+    },
+    "selector": {
+      "title": "Sélectionner une Édition",
+      "description": "Choisissez la mission médicale pour laquelle vous souhaitez travailler",
+      "noEditions": "Aucune édition disponible",
+      "syncPrompt": "Veuillez synchroniser pour récupérer les éditions",
+      "loading": "Chargement des éditions...",
+      "retrieved": "éditions récupérées du serveur"
+    }
+  },
+  "surgeons": {
+    "title": "Gestion de l'Équipe Médicale",
+    "close": "Fermer",
+    "add": {
+      "title": "Ajouter un nouveau membre",
+      "namePlaceholder": "Nom complet (Dr. ...)",
+      "specialtyPlaceholder": "Spécialité (Chirurgien, Anesthésiste...)",
+      "submit": "Ajouter"
+    },
+    "list": {
+      "title": "Membres disponibles",
+      "subtitle": "Assignez les membres à {editionName}",
+      "empty": "Aucun membre enregistré.",
+      "loading": "Chargement...",
+      "unspecified": "Non spécifié",
+      "assigned": "✓ Assigné",
+      "assign": "+ Assigner"
+    }
+  },
+  "workflow": {
+    "title": "Workflow Rapide (Saisie groupée)",
+    "tabs": {
+      "preOp": "1. Pré-Op",
+      "bloc": "2. Bloc",
+      "postOp": "3. Post-Op"
+    },
+    "searchPlaceholder": "Rechercher par nom ou numéro de dossier...",
+    "resultsFound": "{count} patients trouvés",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "status": {
+      "callOk": "Appel OK",
+      "presenceOk": "Présence OK",
+      "entry": "Entrée: {time}",
+      "pharmaOk": "Pharma OK",
+      "exit": "Sortie: {time}",
+      "undefinedIntervention": "Intervention non définie"
+    },
+    "bulk": {
+      "title": "Actions Groupées",
+      "subtitle": "{count} patient(s) sélectionné(s)",
+      "sections": {
+        "quickCheck": "Coche Rapide",
+        "blocEntry": "Entrée Bloc",
+        "pharmacyStatus": "Statut Pharmacie",
+        "assignSurgeons": "Assigner Chirurgiens",
+        "blocExit": "Sortie du Bloc",
+        "postOpEntry": "Entrée Post-Op",
+        "discharge": "Sortie Définitive"
+      },
+      "labels": {
+        "preOpCallOk": "Appel Pré-Op OK",
+        "presenceCheckOk": "Checking Présence OK",
+        "noChange": "-- Ne pas changer --",
+        "pending": "⏳ À récupérer",
+        "retrieved": "✅ Récupéré",
+        "none": "❌ Pas de médicaments",
+        "noStaff": "Aucun personnel dispo"
+      },
+      "submit": "Appliquer à ({count})"
+    },
+    "alerts": {
+      "success": "✅ Mise à jour effectuée pour {count} patient(s)",
+      "error": "Erreur lors de la mise à jour"
+    }
+  },
+  "enums": {
+    "days": {
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi",
+      "toDefine": "A définir"
+    },
+    "distance": {
+      "inCity": "En ville",
+      "nearby": "Un peu loin",
+      "far": "Loin",
+      "unspecified": "Non précisé"
+    },
+    "pharmacyStatus": {
+      "pending": "À récupérer",
+      "retrieved": "Médicaments récupérés",
+      "none": "Aucune prescription"
+    },
+    "gender": {
+      "male": "M",
+      "female": "F"
+    }
+  },
+  "patient": {
+    "sections": {
+      "personal": "Informations Personnelles",
+      "medical": "Paramètres Médicaux",
+      "surgical": "Consultation Chirurgicale",
+      "history": "Antécédents"
+    },
+    "fields": {
+      "dob": "Date de naissance",
+      "age": "Âge",
+      "gender": "Genre",
+      "phone": "Téléphone",
+      "address": "Adresse",
+      "distance": "Distance",
+      "weight": "Poids",
+      "height": "Taille",
+      "bmi": "IMC",
+      "bloodPressure": "Tension",
+      "temperature": "Température",
+      "pulse": "Pouls",
+      "respiratoryRate": "Resp.",
+      "spo2": "SpO2",
+      "clinicalDiagnosis": "Diagnostic clinique",
+      "interventionType": "Type d'intervention",
+      "observation": "Observation",
+      "programmed": "À programmer",
+      "planningDay": "Jour Prévu",
+      "historyOthers": "Autres antécédents",
+      "asaScore": "Score ASA",
+      "anesthesiaType": "Type d'anesthésie",
+      "anesthesiaObservation": "Observation anesthésie"
+    },
+    "history": {
+      "diabetes": "Diabète",
+      "hypertension": "Hypertension",
+      "asthma": "Asthme",
+      "cardiopathy": "Cardiopathie",
+      "none": "Aucun connu"
+    },
+    "values": {
+      "male": "Masculin",
+      "female": "Féminin",
+      "yes": "Oui",
+      "no": "Non",
+      "unspecified": "Non précisé",
+      "toBeDefined": "A définir"
+    }
+  },
+  "errors": {
+    "loadingEdition": "Erreur lors du chargement de l'édition:"
+  }
+}
