@@ -231,105 +231,109 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                 </div>
             </div>
 
-            {/* BLOCK PERFORMANCE */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8">
-                <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-                    <span className="p-2 bg-violet-50 text-violet-600 rounded-lg">⏱️</span>
-                    {t('blockPerformance.title')}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Real Operations Count */}
-                    <div className="p-4 bg-violet-50 rounded-xl border border-violet-100">
-                        <div className="text-sm font-bold text-violet-800 uppercase mb-1">{t('blockPerformance.realOps')}</div>
-                        <div className="text-3xl font-black text-violet-900">{s.realOperations}</div>
-                        <div className="text-xs font-medium text-violet-600 mt-2">
-                            {t('blockPerformance.ofProgrammed', { count: s.programmed })} ({s.programmed > 0 ? Math.round((s.realOperations / s.programmed) * 100) : 0}%)
-                        </div>
-                    </div>
-
-                    {/* Avg Duration */}
-                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                        <div className="text-sm font-bold text-blue-800 uppercase mb-1">{t('blockPerformance.avgDuration')}</div>
-                        <div className="text-3xl font-black text-blue-900">
-                            {Math.floor(s.avgDuration / 60)}h {s.avgDuration % 60}m
-                        </div>
-                        <div className="text-xs font-medium text-blue-600 mt-2">
-                            {t('blockPerformance.perIntervention')}
-                        </div>
-                    </div>
-
-                    {/* Min Duration */}
-                    <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
-                        <div className="text-sm font-bold text-emerald-800 uppercase mb-1">{t('blockPerformance.minDuration')}</div>
-                        <div className="text-3xl font-black text-emerald-900">
-                            {Math.floor(s.minDuration / 60)}h {s.minDuration % 60}m
-                        </div>
-                    </div>
-
-                    {/* Max Duration */}
-                    <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
-                        <div className="text-sm font-bold text-orange-800 uppercase mb-1">{t('blockPerformance.maxDuration')}</div>
-                        <div className="text-3xl font-black text-orange-900">
-                            {Math.floor(s.maxDuration / 60)}h {s.maxDuration % 60}m
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* KPI CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* COMBINED STATS GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* PATIENT PIPELINE CARD */}
                 <div
                     onClick={() => onNavigate('list')}
-                    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all cursor-pointer"
+                    className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer group hover:shadow-md transition-all relative overflow-hidden"
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-5 text-indigo-600 transform group-hover:scale-110 transition-transform">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                        <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
                     </div>
-                    <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.totalPatients')}</p>
-                        <h3 className="text-4xl font-black text-slate-800">{s.total}</h3>
-                        <p className="text-green-600 text-sm font-bold mt-2 flex items-center gap-1">
-                            <span className="bg-green-100 px-1.5 py-0.5 rounded text-xs">+{s.createdToday}</span> {tCommon('today')}
-                        </p>
+
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-6">
+                            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">👥</span>
+                                {t('stats.totalPatients')}
+                            </h3>
+                            <div className="text-right">
+                                <div className="text-4xl font-black text-slate-800 transition-all group-hover:text-indigo-600">{s.total}</div>
+                                {s.createdToday > 0 && (
+                                    <span className="inline-block mt-1 text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                                        +{s.createdToday} {tCommon('today')}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Progress Bar Area */}
+                        <div className="space-y-5">
+                            <div>
+                                <div className="flex justify-between text-sm font-bold mb-1.5">
+                                    <span className="text-emerald-600 flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                        {t('stats.programmed')}
+                                    </span>
+                                    <span className="text-slate-500">{Math.round((s.programmed / (s.total || 1)) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                    <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000" style={{ width: `${(s.programmed / (s.total || 1)) * 100}%` }}></div>
+                                </div>
+                                <div className="text-xs text-slate-400 font-medium mt-1 pl-3.5">{s.programmed} patients</div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between text-sm font-bold mb-1.5">
+                                    <span className="text-orange-500 flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                        {t('stats.notProgrammed')}
+                                    </span>
+                                    <span className="text-slate-500">{Math.round((s.pending / (s.total || 1)) * 100)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                    <div className="bg-orange-400 h-full rounded-full transition-all duration-1000" style={{ width: `${(s.pending / (s.total || 1)) * 100}%` }}></div>
+                                </div>
+                                <div className="text-xs text-slate-400 font-medium mt-1 pl-3.5">{s.pending} patients</div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 pt-4 border-t border-slate-50 flex justify-between items-center text-sm">
+                            <span className="font-bold text-slate-400 uppercase tracking-wider text-xs">{t('stats.fillRate')}</span>
+                            <span className="font-black text-indigo-600 text-lg">{s.total > 0 ? Math.round((s.programmed / s.total) * 100) : 0}%</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-emerald-600 transform group-hover:scale-110 transition-transform">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>
+                {/* BLOCK PERFORMANCE CARD */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 text-violet-600">
+                        <svg className="w-32 h-32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
-                    <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.programmed')}</p>
-                        <h3 className="text-4xl font-black text-emerald-600">{s.programmed}</h3>
-                        <p className="text-slate-400 text-sm font-medium mt-2">
-                            {t('stats.programmedPatients')}
-                        </p>
-                    </div>
-                </div>
 
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:shadow-md transition-all">
-                    <div className="absolute top-0 right-0 p-4 opacity-5 text-orange-600 transform group-hover:scale-110 transition-transform">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"></path></svg>
-                    </div>
-                    <div className="relative">
-                        <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{t('stats.notProgrammed')}</p>
-                        <h3 className="text-4xl font-black text-orange-500">{s.pending}</h3>
-                        <p className="text-slate-400 text-sm font-medium mt-2">
-                            {t('stats.notProgrammedPlural')}
-                        </p>
-                    </div>
-                </div>
+                    <div className="relative z-10 h-full flex flex-col">
+                        <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
+                            <span className="p-2 bg-violet-50 text-violet-600 rounded-lg">⏱️</span>
+                            {t('blockPerformance.title')}
+                        </h3>
 
-                <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-6 rounded-2xl shadow-lg relative overflow-hidden group text-white">
-                    <div className="absolute top-0 right-0 p-4 opacity-20 transform group-hover:scale-110 transition-transform">
-                        <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd"></path></svg>
-                    </div>
-                    <div className="relative">
-                        <p className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-1">{t('stats.fillRate')}</p>
-                        <h3 className="text-4xl font-black">{s.total > 0 ? Math.round((s.programmed / s.total) * 100) : 0}%</h3>
-                        <p className="text-indigo-200 text-sm font-medium mt-2">
-                            {t('stats.patientsScheduled')}
-                        </p>
+                        <div className="flex flex-col sm:flex-row gap-8 flex-1">
+                            <div className="flex-1 flex flex-col justify-center">
+                                <div className="text-xs text-slate-400 font-bold uppercase mb-1 tracking-wider">{t('blockPerformance.realOps')}</div>
+                                <div className="text-5xl font-black text-violet-900 mb-2">{s.realOperations}</div>
+                                <div className="text-xs font-bold text-violet-600 bg-violet-50 px-3 py-1.5 rounded-lg inline-block self-start">
+                                    {t('blockPerformance.ofProgrammed', { count: s.programmed })}
+                                </div>
+                            </div>
+
+                            <div className="flex-1 flex flex-col justify-center space-y-3">
+                                <div className="flex justify-between items-center p-4 bg-blue-50/50 rounded-2xl border border-blue-100/50">
+                                    <div className="text-xs font-bold text-blue-800 uppercase">{t('blockPerformance.avgDuration')}</div>
+                                    <div className="text-xl font-black text-blue-900">{Math.floor(s.avgDuration / 60)}h {s.avgDuration % 60}m</div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+                                        <div className="text-[10px] font-bold text-emerald-800 uppercase mb-1">Min</div>
+                                        <div className="text-sm font-black text-emerald-900">{Math.floor(s.minDuration / 60)}h {s.minDuration % 60}m</div>
+                                    </div>
+                                    <div className="p-3 bg-orange-50/50 rounded-xl border border-orange-100/50">
+                                        <div className="text-[10px] font-bold text-orange-800 uppercase mb-1">Max</div>
+                                        <div className="text-sm font-black text-orange-900">{Math.floor(s.maxDuration / 60)}h {s.maxDuration % 60}m</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
