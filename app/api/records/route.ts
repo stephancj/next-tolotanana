@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
 import { medicalRecords } from '@/lib/schema';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 // Force dynamic rendering (server-side only)
 export const dynamic = 'force-dynamic';
@@ -52,5 +52,30 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error('Error creating record:', error);
         return NextResponse.json({ error: 'Failed to create record' }, { status: 500 });
+    }
+}
+
+export async function PATCH(req: Request) {
+    try {
+        const body = await req.json();
+        const { id, ...updates } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
+        }
+
+        const result = await db.update(medicalRecords)
+            .set({
+                ...updates,
+                updated_at: new Date()
+            })
+            .where(eq(medicalRecords.id, id))
+            .returning();
+
+        return NextResponse.json({ success: true, record: result[0] });
+
+    } catch (error) {
+        console.error('Error updating record:', error);
+        return NextResponse.json({ error: 'Failed to update record' }, { status: 500 });
     }
 }

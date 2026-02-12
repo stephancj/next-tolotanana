@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { MedicalRecord, db, Edition } from '@/lib/client-db';
+import { useState, useMemo, useEffect } from 'react';
+import { MedicalRecord, Edition, Surgeon } from '@/lib/client-db';
 import { useTranslations } from '../providers/I18nProvider';
 
 interface WorkflowManagerProps {
@@ -15,7 +14,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRecordIds, setSelectedRecordIds] = useState<Set<number>>(new Set());
     const [loading, setLoading] = useState(false);
-    const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+
 
     // Bulk Data States
     const [bulkPreOpCall, setBulkPreOpCall] = useState<boolean | null>(null);
@@ -33,112 +32,79 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
     const t = useTranslations('workflow');
 
-    // Fetch active surgeons for the list
-    const surgeons = useLiveQuery(() => db.surgeons.where('is_active').equals(1).toArray()) || [];
+    const [neonRecords, setNeonRecords] = useState<MedicalRecord[]>([]);
+    const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
+    const [loadingData, setLoadingData] = useState(false);
 
-    // Fetch records
-    const liveRecords = useLiveQuery(async () => {
-        return await db.medical_records.toArray();
-    }, []);
+    // Fetch Data from Neon
+    useEffect(() => {
+        const loadData = async () => {
+            if (!currentEdition?.public_id) return;
+            setLoadingData(true);
+            try {
+                const [recRes, edRes, surgRes] = await Promise.all([
+                    fetch('/api/records'),
+                    fetch('/api/editions'),
+                    fetch('/api/surgeons?is_active=1')
+                ]);
 
-    // Online Search Implementation
-    const performOnlineSearch = async (term: string) => {
-        if (!term || term.length < 2) return;
-        setIsSearchingOnline(true);
-        console.log('DEBUG: Starting Online Search for:', term);
+                if (!recRes.ok || !edRes.ok || !surgRes.ok) throw new Error("Failed to fetch data");
 
+                const allRecords = await recRes.json();
+                const allEditions = await edRes.json();
+                const allSurgeons = await surgRes.json();
+
+                setSurgeons(allSurgeons);
+
+                // Find matching remote edition
+                const remoteEdition = allEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
+
+                if (remoteEdition) {
+                    const filtered = allRecords.filter((r: MedicalRecord) => r.edition_id === remoteEdition.id && !r.deleted);
+                    setNeonRecords(filtered);
+                } else {
+                    setNeonRecords([]);
+                }
+            } catch (err) {
+                console.error("Error loading Neon data:", err);
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        loadData();
+    }, [currentEdition?.public_id]);
+
+    // Reload data helper
+    const reloadData = async () => {
+        if (!currentEdition?.public_id) return;
         try {
-            // 1. Fetch remote data (Records and Editions to map IDs)
-            const [recordsRes, editionsRes] = await Promise.all([
+            const [recRes, edRes] = await Promise.all([
                 fetch('/api/records'),
                 fetch('/api/editions')
             ]);
+            const allRecords = await recRes.json();
+            const allEditions = await edRes.json();
 
-            if (!recordsRes.ok || !editionsRes.ok) throw new Error("Network error during search");
-
-            const remoteRecords = await recordsRes.json();
-            const remoteEditions = await editionsRes.json();
-
-            // 2. Find the Remote Edition corresponding to our Current Local Edition
-            // We match by public_id which should be consistent
-            if (!currentEdition?.public_id) {
-                console.warn("Current edition has no public_id, cannot map remote data.");
-                return;
+            const remoteEdition = allEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
+            if (remoteEdition) {
+                const filtered = allRecords.filter((r: MedicalRecord) => r.edition_id === remoteEdition.id && !r.deleted);
+                setNeonRecords(filtered);
             }
-
-            const matchingRemoteEdition = remoteEditions.find((e: any) => e.public_id === currentEdition.public_id);
-            if (!matchingRemoteEdition) {
-                console.warn("Could not find matching remote edition for:", currentEdition.name);
-                return;
-            }
-
-            console.log(`DEBUG: Mapping Remote Edition ID ${matchingRemoteEdition.id} -> Local Edition ID ${currentEdition.id}`);
-
-            // 3. Filter remote records that match the search term AND the edition
-            const lowerTerm = term.toLowerCase().trim();
-            const matches = remoteRecords.filter((r: any) => {
-                // Must belong to the same edition (Remote ID check)
-                if (r.edition_id !== matchingRemoteEdition.id) return false;
-                if (r.deleted) return false;
-
-                const nameMatch = (r.last_name + ' ' + r.first_name).toLowerCase().includes(lowerTerm);
-                const dossierMatch = (r.dossier_number || '').toLowerCase().includes(lowerTerm);
-                return nameMatch || dossierMatch;
-            });
-
-            console.log(`DEBUG: Found ${matches.length} matches online.`);
-
-            if (matches.length > 0) {
-                // 4. Save/Update in Dexie
-                // We must map the REMOTE edition_id back to the LOCAL edition_id
-                const recordsToSync = matches.map((r: any) => {
-                    // Keep most fields, but swap edition_id
-                    const { id, edition_id, ...rest } = r;
-                    return {
-                        ...rest,
-                        // If we have a local public_id match, use that. If not, generate one?
-                        // Actually, 'r' from API should have a public_id.
-                        public_id: r.public_id || crypto.randomUUID(),
-                        edition_id: currentEdition.id!, // FORCE to current local edition ID
-                        sync_status: 'synced', // It came from server, so it is synced
-                        last_updated: new Date().toISOString()
-                    };
-                });
-
-                // Bulk Put (upsert) based on public_id?
-                // Dexie 'medical_records' uses ++id as PK.
-                // We need to check if they exist by public_id to avoid duplicates.
-
-                await db.transaction('rw', db.medical_records, async () => {
-                    for (const rec of recordsToSync) {
-                        const existing = await db.medical_records.where('public_id').equals(rec.public_id).first();
-                        if (existing) {
-                            await db.medical_records.update(existing.id!, rec);
-                        } else {
-                            await db.medical_records.add(rec as MedicalRecord);
-                        }
-                    }
-                });
-                console.log("DEBUG: Synced online results to local DB.");
-            }
-
-        } catch (err) {
-            console.error("Online search failed:", err);
-        } finally {
-            setIsSearchingOnline(false);
+        } catch (e) {
+            console.error(e);
         }
     };
 
     // Filter records based on search and tab logic
     const filteredRecords = useMemo(() => {
-        const records = liveRecords || [];
+        const records = neonRecords || [];
 
-        // 1. Filter by Edition (DISABLED to show all records for debugging)
+        // 1. Filter by Edition
         const editionRecords = records;
 
-        // 2. Filter by Program Mission - RESTORE but keep relaxed
+        // 2. Filter by Program Mission
         const programmedRecords = editionRecords.filter(r => {
-            // Loose check for "1", 1, "true", true
             return r.program_mission == 1 || String(r.program_mission) === 'true';
         });
 
@@ -154,17 +120,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
             return firstName.includes(lowerTerm) || lastName.includes(lowerTerm) || dossier.includes(lowerTerm);
         });
         return results;
-    }, [liveRecords, searchTerm, currentEdition?.id]);
-
-    // Trigger online search when local results are empty and user is typing
-    useMemo(() => { // Using useMemo as a side-effect trigger (debounce would be better but this is quick)
-        if (filteredRecords.length === 0 && searchTerm.length > 2 && !isSearchingOnline) {
-            const timer = setTimeout(() => {
-                performOnlineSearch(searchTerm);
-            }, 800); // 800ms debounce
-            return () => clearTimeout(timer);
-        }
-    }, [filteredRecords.length, searchTerm, isSearchingOnline, currentEdition?.public_id, currentEdition?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [neonRecords, searchTerm]);
 
     const toggleSelection = (id: number) => {
         const newSet = new Set(selectedRecordIds);
@@ -190,7 +146,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
         try {
             const updates: Partial<MedicalRecord> = {
-                sync_status: 'pending_update',
+                sync_status: 'synced', // Direct update
                 updated_at: new Date().toISOString()
             };
 
@@ -206,39 +162,47 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 if (bulkBlockEntry) updates.block_entry_time = bulkBlockEntry;
             } else if (activeTab === 'bloc') {
                 if (bulkPharmacyStatus) updates.pharmacy_status = bulkPharmacyStatus as 'pending' | 'retrieved' | 'none';
-                // Note: Surgeon updates are more complex as they are in a separate table
             } else if (activeTab === 'post-op') {
                 if (bulkBlockExit) updates.block_exit_time = bulkBlockExit;
                 if (bulkPostOpEntry) updates.post_op_entry_time = bulkPostOpEntry;
                 if (bulkDischargeTime) updates.discharge_time = bulkDischargeTime;
             }
 
-            // Apply updates to selected records in parallel
-            await Promise.all(Array.from(selectedRecordIds).map(id => db.medical_records.update(id, updates)));
+            // Apply updates to selected records via API
+            await Promise.all(Array.from(selectedRecordIds).map(async (id) => {
+                const res = await fetch('/api/records', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, ...updates })
+                });
+                if (!res.ok) throw new Error(`Failed to update record ${id}`);
+            }));
 
             // Handle Surgeon Bulk Update specifically
             if (activeTab === 'bloc' && bulkSurgeons.length > 0) {
-                // For each selected record, replace surgeons
-                for (const recordId of selectedRecordIds) {
-                    // Remove existing
-                    const existingSurgeons = await db.record_surgeons.where('medical_record_id').equals(recordId).toArray();
-                    await db.record_surgeons.bulkDelete(existingSurgeons.map(s => s.id!));
-
-                    // Add new
-                    const newLinks = bulkSurgeons.map(sid => ({
-                        medical_record_id: recordId,
-                        surgeon_id: sid,
-                        sync_status: 'pending_update' as const
-                    }));
-                    await db.record_surgeons.bulkAdd(newLinks);
-                }
+                // For each selected record, assign surgeons
+                await Promise.all(Array.from(selectedRecordIds).map(async (id) => {
+                    const res = await fetch('/api/record_surgeons', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            medical_record_id: id,
+                            surgeon_ids: bulkSurgeons
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Failed to assign surgeons for record ${id}`);
+                }));
             }
 
             alert(t('alerts.success', { count: selectedRecordIds.size }));
             setSelectedRecordIds(new Set());
-            // Reset bulk fields? Maybe keep them for next batch? Let's keep specific ones reset.
+            // Reset bulk fields
             setBulkPreOpCall(null);
             setBulkPreOpCheck(null);
+
+            // Reload data
+            await reloadData();
+
         } catch (err) {
             console.error(err);
             alert(t('alerts.error'));
@@ -300,7 +264,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 <div className="flex-1">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-bold text-slate-700">
-                            {t('resultsFound', { count: filteredRecords.length })}
+                            {loadingData ? 'Chargement...' : t('resultsFound', { count: filteredRecords.length })}
                         </h2>
                         <button
                             onClick={toggleSelectAll}
