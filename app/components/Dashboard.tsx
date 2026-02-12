@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Edition, MedicalRecord } from '@/lib/client-db';
 import LoadingSpinner from './LoadingSpinner';
-import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslations, useLocale } from '../providers/I18nProvider';
 import { translateDay, translateDistance } from '@/lib/enum-translations';
 import { Locale } from '@/lib/i18n-config';
@@ -219,6 +218,7 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
             )}
 
             {/* HEADER */}
+            {/* HEADER */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-indigo-50 pb-6">
                 <div>
                     <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
@@ -228,47 +228,6 @@ export default function Dashboard({ currentEdition, onNavigate, onEdit }: Dashbo
                     <p className="text-gray-500 mt-1">
                         {currentEdition ? `${currentEdition.name} - ${currentEdition.place} ${currentEdition.year}` : t('header.noEdition')}
                     </p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                    <LanguageSwitcher />
-                    <button
-                        onClick={() => fetchData()}
-                        disabled={refreshing}
-                        className="bg-white text-slate-600 px-4 py-2.5 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2"
-                        title={tCommon('refresh')}
-                    >
-                        <span className={`${refreshing ? 'animate-spin' : ''}`}>🔄</span>
-                    </button>
-                    <button
-                        onClick={() => onNavigate('surgeons')}
-                        className="bg-white text-emerald-600 px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-50 transition border border-emerald-100 flex items-center gap-2"
-                    >
-                        <span>🩺</span> {t('buttons.team')}
-                    </button>
-                    <button
-                        onClick={() => onNavigate('planning')}
-                        className="bg-white text-blue-600 px-5 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition border border-blue-100 flex items-center gap-2"
-                    >
-                        <span>📅</span> {t('buttons.planning')}
-                    </button>
-                    <button
-                        onClick={() => onNavigate('workflow')}
-                        className="bg-white text-purple-600 px-5 py-2.5 rounded-xl font-bold hover:bg-purple-50 transition border border-purple-100 flex items-center gap-2"
-                    >
-                        <span>⚡</span> {t('buttons.workflow')}
-                    </button>
-                    <button
-                        onClick={() => onNavigate('list')}
-                        className="bg-white text-indigo-600 px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-50 transition border border-indigo-100 flex items-center gap-2"
-                    >
-                        <span>📂</span> {t('buttons.list')}
-                    </button>
-                    <button
-                        onClick={() => onNavigate('form')}
-                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2"
-                    >
-                        <span>✚</span> {t('buttons.new')}
-                    </button>
                 </div>
             </div>
 

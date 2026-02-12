@@ -9,6 +9,7 @@ import SurgeonManager from './components/SurgeonManager';
 import WeeklyPlanning from './components/WeeklyPlanning';
 import OperationForm from './components/OperationForm';
 import WorkflowManager from './components/WorkflowManager';
+import Navbar from './components/Navbar';
 import { useSync } from './hooks/useSync';
 import { MedicalRecord, Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
@@ -99,71 +100,80 @@ export default function Home() {
         />
       )}
 
-      {view === 'dashboard' ? (
-        <Dashboard
-          currentEdition={currentEdition}
-          onNavigate={setView}
-          onEdit={(record) => {
-            setSelectedRecord(record);
-            setView('form');
-          }}
-        />
-      ) : view === 'form' ? (
-        <FicheMedicale
-          key={selectedRecord ? selectedRecord.id : 'new'}
-          initialData={selectedRecord}
-          currentEditionId={currentEdition?.id}
-          edition={currentEdition}
-          onChangeEdition={handleChangeEdition}
-          onSuccess={() => {
-            setSelectedRecord(undefined);
-            setView('list');
-          }}
-          onNew={() => setSelectedRecord(undefined)}
-        />
-      ) : view === 'surgeons' ? (
-        <SurgeonManager
-          currentEdition={currentEdition}
-          onBack={() => setView('dashboard')}
-        />
-      ) : view === 'planning' ? (
-        <WeeklyPlanning
-          currentEdition={currentEdition}
-          onBack={() => setView('dashboard')}
-          onEditOperation={(record) => {
-            setSelectedOperationRecord(record);
-            setView('operation');
-          }}
-        />
-      ) : view === 'operation' && selectedOperationRecord ? (
-        <OperationForm
-          record={selectedOperationRecord}
-          onBack={() => setView('planning')}
-          onSuccess={() => {
-            setSelectedOperationRecord(undefined);
-            setView('planning');
-          }}
-        />
-      ) : view === 'workflow' ? (
-        <WorkflowManager
-          currentEdition={currentEdition}
-          onBack={() => setView('dashboard')}
-        />
-      ) : (
-        <RecordList
-          currentEditionId={currentEdition?.id}
-          edition={currentEdition}
-          onChangeEdition={handleChangeEdition}
-          onBack={() => {
-            setSelectedRecord(undefined);
-            setView('dashboard');
-          }}
-          onEdit={(record: MedicalRecord) => {
-            setSelectedRecord(record);
-            setView('form');
-          }}
-        />
-      )}
+      {/* NAVBAR */}
+      <Navbar
+        onNavigate={(v: string) => setView(v as any)}
+        currentView={view}
+        editionName={currentEdition ? `${currentEdition.name} - ${currentEdition.year}` : undefined}
+      />
+
+      <div className="pt-4">
+        {view === 'dashboard' ? (
+          <Dashboard
+            currentEdition={currentEdition}
+            onNavigate={setView}
+            onEdit={(record) => {
+              setSelectedRecord(record);
+              setView('form');
+            }}
+          />
+        ) : view === 'form' ? (
+          <FicheMedicale
+            key={selectedRecord ? selectedRecord.id : 'new'}
+            initialData={selectedRecord}
+            currentEditionId={currentEdition?.id}
+            edition={currentEdition}
+            onChangeEdition={handleChangeEdition}
+            onSuccess={() => {
+              setSelectedRecord(undefined);
+              setView('list');
+            }}
+            onNew={() => setSelectedRecord(undefined)}
+          />
+        ) : view === 'surgeons' ? (
+          <SurgeonManager
+            currentEdition={currentEdition}
+            onBack={() => setView('dashboard')}
+          />
+        ) : view === 'planning' ? (
+          <WeeklyPlanning
+            currentEdition={currentEdition}
+            onBack={() => setView('dashboard')}
+            onEditOperation={(record) => {
+              setSelectedOperationRecord(record);
+              setView('operation');
+            }}
+          />
+        ) : view === 'operation' && selectedOperationRecord ? (
+          <OperationForm
+            record={selectedOperationRecord}
+            onBack={() => setView('planning')}
+            onSuccess={() => {
+              setSelectedOperationRecord(undefined);
+              setView('planning');
+            }}
+          />
+        ) : view === 'workflow' ? (
+          <WorkflowManager
+            currentEdition={currentEdition}
+            onBack={() => setView('dashboard')}
+          />
+        ) : (
+          <RecordList
+            currentEditionId={currentEdition?.id}
+            edition={currentEdition}
+            onChangeEdition={handleChangeEdition}
+            onBack={() => {
+              setSelectedRecord(undefined);
+              setView('dashboard');
+            }}
+            onEdit={(record: MedicalRecord) => {
+              setSelectedRecord(record);
+              setView('form');
+            }}
+          />
+        )}
+      </div>
     </main>
   );
 }

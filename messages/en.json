@@ -366,9 +366,13 @@
     "status": {
       "callOk": "Call OK",
       "presenceOk": "Presence OK",
+      "preOpCallTime": "Call: {time}",
+      "preOpCheckedTime": "Presence: {time}",
       "entry": "Entry: {time}",
       "pharmaOk": "Pharma OK",
       "exit": "Exit: {time}",
+      "postOpEntry": "Post-Op: {time}",
+      "discharge": "Discharge: {time}",
       "undefinedIntervention": "Undefined Intervention"
     },
     "bulk": {
@@ -377,11 +381,17 @@
       "sections": {
         "quickCheck": "Quick Check",
         "blocEntry": "OR Entry",
+        "category": "Category",
+        "operativeReport": "Operative Report",
         "pharmacyStatus": "Pharmacy Status",
+        "prescription": "Prescription",
         "assignSurgeons": "Assign Surgeons",
         "blocExit": "OR Exit",
         "postOpEntry": "Post-Op Entry",
-        "discharge": "Final Discharge"
+        "room": "Room #",
+        "bed": "Bed #",
+        "discharge": "Final Discharge",
+        "dischargeNotes": "Discharge Notes"
       },
       "labels": {
         "preOpCallOk": "Pre-Op Call OK",
@@ -397,6 +407,14 @@
     "alerts": {
       "success": "✅ Update successful for {count} patient(s)",
       "error": "Error during update"
+    },
+    "filters": {
+      "allDates": "All Dates",
+      "allStatuses": "All Statuses",
+      "presentPending": "Present (Pending)",
+      "inBlock": "In Block",
+      "postOp": "In Post-Op",
+      "discharged": "Discharged"
     }
   },
   "enums": {
