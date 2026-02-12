@@ -381,11 +381,17 @@
       "sections": {
         "quickCheck": "Coche Rapide",
         "blocEntry": "Entrée Bloc",
+        "category": "Catégorie",
+        "operativeReport": "Compte-rendu Op.",
         "pharmacyStatus": "Statut Pharmacie",
+        "prescription": "Prescription",
         "assignSurgeons": "Assigner Chirurgiens",
         "blocExit": "Sortie du Bloc",
         "postOpEntry": "Entrée Post-Op",
-        "discharge": "Sortie Définitive"
+        "room": "Chambre N°",
+        "bed": "Lit N°",
+        "discharge": "Sortie Définitive",
+        "dischargeNotes": "Notes de Sortie"
       },
       "labels": {
         "preOpCallOk": "Appel Pré-Op OK",

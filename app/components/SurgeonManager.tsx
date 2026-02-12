@@ -125,13 +125,13 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
             {/* Create Surgeon Form */}
             <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <h3 className="font-semibold text-lg mb-4 text-gray-700">{t('add.title')}</h3>
-                <form onSubmit={handleCreateSurgeon} className="flex gap-4">
+                <form onSubmit={handleCreateSurgeon} className="flex flex-col md:flex-row gap-4">
                     <input
                         type="text"
                         placeholder={t('add.namePlaceholder')}
                         value={newSurgeonName}
                         onChange={(e) => setNewSurgeonName(e.target.value)}
-                        className="flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full md:flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         required
                     />
                     <input
@@ -139,9 +139,9 @@ export default function SurgeonManager({ currentEdition, onBack }: SurgeonManage
                         placeholder={t('add.specialtyPlaceholder')}
                         value={newSpecialty}
                         onChange={(e) => setNewSpecialty(e.target.value)}
-                        className="flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full md:flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
+                    <button type="submit" className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
                         {t('add.submit')}
                     </button>
                 </form>

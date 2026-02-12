@@ -202,8 +202,8 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
                                     key={record.id}
                                     className="bg-white rounded-2xl p-6 border border-slate-100 hover:shadow-md transition-shadow"
                                 >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
+                                    <div className="flex flex-col md:flex-row items-start justify-between gap-6">
+                                        <div className="flex-1 w-full">
                                             <div className="flex items-center gap-3 mb-3">
                                                 <span className="text-2xl font-black text-indigo-600">#{index + 1}</span>
                                                 <div>
@@ -269,7 +269,7 @@ export default function WeeklyPlanning({ currentEdition, onBack, onEditOperation
 
                                         <button
                                             onClick={() => onEditOperation(record)}
-                                            className={`px-5 py-2.5 rounded-xl font-bold transition-all ${hasOperationData
+                                            className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-bold transition-all ${hasOperationData
                                                 ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
                                                 : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200'
                                                 }`}

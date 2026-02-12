@@ -25,11 +25,17 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
     // Bloc Bulk Data
     const [bulkPharmacyStatus, setBulkPharmacyStatus] = useState<string>('');
     const [bulkSurgeons, setBulkSurgeons] = useState<number[]>([]);
+    const [bulkDiagnosisCategory, setBulkDiagnosisCategory] = useState('');
+    const [bulkInterventionDetails, setBulkInterventionDetails] = useState('');
+    const [bulkPrescriptionDetails, setBulkPrescriptionDetails] = useState('');
 
     // Post-Op Bulk Data
     const [bulkBlockExit, setBulkBlockExit] = useState('');
     const [bulkPostOpEntry, setBulkPostOpEntry] = useState('');
+    const [bulkPostOpRoom, setBulkPostOpRoom] = useState('');
+    const [bulkPostOpBed, setBulkPostOpBed] = useState('');
     const [bulkDischargeTime, setBulkDischargeTime] = useState('');
+    const [bulkDischargeNotes, setBulkDischargeNotes] = useState('');
 
     const t = useTranslations('workflow');
 
@@ -215,10 +221,16 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 if (bulkBlockEntry) updates.block_entry_time = bulkBlockEntry;
             } else if (activeTab === 'bloc') {
                 if (bulkPharmacyStatus) updates.pharmacy_status = bulkPharmacyStatus as 'pending' | 'retrieved' | 'none';
+                if (bulkDiagnosisCategory) updates.diagnosis_category = bulkDiagnosisCategory;
+                if (bulkInterventionDetails) updates.intervention_details = bulkInterventionDetails;
+                if (bulkPrescriptionDetails) updates.prescription_details = bulkPrescriptionDetails;
             } else if (activeTab === 'post-op') {
                 if (bulkBlockExit) updates.block_exit_time = bulkBlockExit;
                 if (bulkPostOpEntry) updates.post_op_entry_time = bulkPostOpEntry;
+                if (bulkPostOpRoom) updates.post_op_room = bulkPostOpRoom;
+                if (bulkPostOpBed) updates.post_op_bed = bulkPostOpBed;
                 if (bulkDischargeTime) updates.discharge_time = bulkDischargeTime;
+                if (bulkDischargeNotes) updates.discharge_notes = bulkDischargeNotes;
             }
 
             // Apply updates to selected records via SINGLE API CALL
@@ -257,9 +269,15 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
             setBulkBlockEntry('');
             setBulkPharmacyStatus('');
             setBulkSurgeons([]);
+            setBulkDiagnosisCategory('');
+            setBulkInterventionDetails('');
+            setBulkPrescriptionDetails('');
             setBulkBlockExit('');
             setBulkPostOpEntry('');
+            setBulkPostOpRoom('');
+            setBulkPostOpBed('');
             setBulkDischargeTime('');
+            setBulkDischargeNotes('');
 
             // Reload data
             await reloadData();
@@ -354,7 +372,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 </div>
             </header>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col lg:flex-row gap-6">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col-reverse lg:flex-row gap-6">
 
                 {/* LIST SECTION */}
                 <div className="flex-1">
@@ -375,40 +393,40 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                             <div
                                 key={record.id}
                                 onClick={() => toggleSelection(record.id!)}
-                                className={`bg-white p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between group ${selectedRecordIds.has(record.id!)
+                                className={`bg-white p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between group gap-4 ${selectedRecordIds.has(record.id!)
                                     ? 'border-indigo-500 shadow-md bg-indigo-50/10'
                                     : 'border-slate-100 hover:border-indigo-200 hover:shadow-sm'
                                     }`}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selectedRecordIds.has(record.id!)
+                                <div className="flex items-start gap-4">
+                                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors mt-1 ${selectedRecordIds.has(record.id!)
                                         ? 'bg-indigo-500 border-indigo-500 text-white'
                                         : 'bg-white border-slate-300 group-hover:border-indigo-300'
                                         }`}>
                                         {selectedRecordIds.has(record.id!) && '✓'}
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <span className="font-black text-slate-800 text-lg">{record.last_name} {record.first_name}</span>
                                             <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">{record.dossier_number}</span>
                                         </div>
-                                        <div className="text-sm text-slate-500 flex items-center gap-3">
+                                        <div className="text-sm text-slate-500 flex flex-wrap items-center gap-2 mt-1">
                                             <span>{record.age} ans</span>
                                             {record.planning_day && (
                                                 <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">
                                                     📅 {record.planning_day}
                                                 </span>
                                             )}
-                                            <span>•</span>
+                                            <span className="hidden sm:inline">•</span>
                                             <span className="truncate max-w-[200px]">{record.intervention_type || t('status.undefinedIntervention')}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Status Indicators based on Tab */}
-                                <div className="text-right flex flex-col items-end gap-1.5">
+                                <div className="text-left sm:text-right flex flex-row sm:flex-col flex-wrap items-start sm:items-end gap-1.5 pl-10 sm:pl-0">
                                     {/* Pre-Op Statuses */}
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-wrap items-center gap-1.5">
                                         {record.pre_op_call === 1 && (
                                             <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100 flex items-center gap-1.5 shadow-sm">
                                                 <Phone size={14} />
@@ -425,7 +443,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
                                     {/* Bloc Statuses - Grouped Entry/Exit */}
                                     {(record.block_entry_time || record.block_exit_time) && (
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex flex-wrap items-center gap-1.5">
                                             {record.block_entry_time && (
                                                 <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 flex items-center gap-1.5 shadow-sm">
                                                     <LogIn size={14} />
@@ -450,7 +468,7 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
                                     {/* Post-Op Statuses - Grouped Entry/Discharge */}
                                     {(record.post_op_entry_time || record.discharge_time) && (
-                                        <div className="flex items-center gap-1.5">
+                                        <div className="flex flex-wrap items-center gap-1.5">
                                             {record.post_op_entry_time && (
                                                 <span className="text-xs font-bold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-100 flex items-center gap-1.5 shadow-sm">
                                                     <BedDouble size={14} />
@@ -472,16 +490,18 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                 </div>
 
                 {/* BULK ACTION PANEL */}
-                <div className="lg:w-96 flex-shrink-0">
-                    <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 sticky top-24">
-                        <h3 className="text-lg font-black text-slate-800 mb-2 flex items-center gap-2">
-                            <span>⚡</span> {t('bulk.title')}
-                        </h3>
-                        <p className="text-sm text-slate-500 mb-6">
-                            {t('bulk.subtitle', { count: selectedRecordIds.size })}
-                        </p>
+                <div className="lg:w-96 flex-shrink-0 w-full">
+                    <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-140px)] flex flex-col">
+                        <div className="flex-shrink-0 mb-4">
+                            <h3 className="text-lg font-black text-slate-800 mb-1 flex items-center gap-2">
+                                <span>⚡</span> {t('bulk.title')}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                {t('bulk.subtitle', { count: selectedRecordIds.size })}
+                            </p>
+                        </div>
 
-                        <div className="space-y-6">
+                        <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                             {activeTab === 'pre-op' && (
                                 <>
                                     <div className="space-y-3">
@@ -516,6 +536,36 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
 
                             {activeTab === 'bloc' && (
                                 <>
+                                    <div>
+                                        <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.category')}</p>
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-bold"
+                                            value={bulkDiagnosisCategory}
+                                            onChange={(e) => setBulkDiagnosisCategory(e.target.value)}
+                                            placeholder="..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.operativeReport')}</p>
+                                        <textarea
+                                            rows={2}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-bold resize-none"
+                                            value={bulkInterventionDetails}
+                                            onChange={(e) => setBulkInterventionDetails(e.target.value)}
+                                            placeholder="..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.prescription')}</p>
+                                        <textarea
+                                            rows={2}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold resize-none"
+                                            value={bulkPrescriptionDetails}
+                                            onChange={(e) => setBulkPrescriptionDetails(e.target.value)}
+                                            placeholder="..."
+                                        />
+                                    </div>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.pharmacyStatus')}</p>
                                         <select
@@ -581,17 +631,49 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                                             onChange={(e) => setBulkDischargeTime(e.target.value)}
                                         />
                                     </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <p className="font-bold text-slate-700 text-xs uppercase mb-2">{t('bulk.sections.room')}</p>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 font-bold text-center"
+                                                value={bulkPostOpRoom}
+                                                onChange={(e) => setBulkPostOpRoom(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-slate-700 text-xs uppercase mb-2">{t('bulk.sections.bed')}</p>
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 font-bold text-center"
+                                                value={bulkPostOpBed}
+                                                onChange={(e) => setBulkPostOpBed(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.dischargeNotes')}</p>
+                                        <textarea
+                                            rows={2}
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold resize-none"
+                                            value={bulkDischargeNotes}
+                                            onChange={(e) => setBulkDischargeNotes(e.target.value)}
+                                            placeholder="..."
+                                        />
+                                    </div>
                                 </>
                             )}
                         </div>
 
-                        <button
-                            onClick={handleBulkSave}
-                            disabled={selectedRecordIds.size === 0 || loading}
-                            className="w-full mt-8 bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {loading ? <span className="animate-spin">⏳</span> : <span>💾 {t('bulk.submit', { count: selectedRecordIds.size })}</span>}
-                        </button>
+                        <div className="flex-shrink-0 pt-4 mt-2 border-t border-slate-100">
+                            <button
+                                onClick={handleBulkSave}
+                                disabled={selectedRecordIds.size === 0 || loading}
+                                className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {loading ? <span className="animate-spin">⏳</span> : <span>💾 {t('bulk.submit', { count: selectedRecordIds.size })}</span>}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </main>
