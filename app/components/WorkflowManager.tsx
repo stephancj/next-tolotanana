@@ -96,31 +96,73 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
         }
     };
 
-    // Filter records based on search and tab logic
+    const [filterStatus, setFilterStatus] = useState<string>('all');
+    const [filterDate, setFilterDate] = useState<string>('');
+
+    // ... (existing states)
+
+    // Filter records
     const filteredRecords = useMemo(() => {
         const records = neonRecords || [];
-
-        // 1. Filter by Edition
         const editionRecords = records;
 
-        // 2. Filter by Program Mission
-        const programmedRecords = editionRecords.filter(r => {
+        // 1. Filter by Program Mission
+        let result = editionRecords.filter(r => {
             return r.program_mission == 1 || String(r.program_mission) === 'true';
         });
 
-        if (!searchTerm) return programmedRecords;
+        // 2. Filter by Date (Planning Day)
+        if (filterDate) {
+            result = result.filter(r => r.planning_day === filterDate);
+        }
 
-        const lowerTerm = String(searchTerm).toLowerCase().trim();
+        // 3. Filter by Status
+        if (filterStatus !== 'all') {
+            result = result.filter(r => {
+                const isPreOpChecked = Boolean(r.pre_op_checked);
 
-        const results = programmedRecords.filter(r => {
-            const firstName = r.first_name ? String(r.first_name).toLowerCase() : '';
-            const lastName = r.last_name ? String(r.last_name).toLowerCase() : '';
-            const dossier = r.dossier_number ? String(r.dossier_number).toLowerCase() : '';
+                if (filterStatus === 'present_pending') {
+                    // Present but not in block (pre_op_checked=true, block_entry_time=null)
+                    return isPreOpChecked && !r.block_entry_time;
+                }
+                if (filterStatus === 'in_block') {
+                    // In block but not out (block_entry_time!=null, block_exit_time=null)
+                    return r.block_entry_time && !r.block_exit_time;
+                }
+                if (filterStatus === 'post_op') {
+                    // Out of block but not discharged (block_exit_time!=null, discharge_time=null)
+                    return r.block_exit_time && !r.discharge_time;
+                }
+                if (filterStatus === 'discharged') {
+                    // Discharged (discharge_time!=null)
+                    return !!r.discharge_time;
+                }
+                return true;
+            });
+        }
 
-            return firstName.includes(lowerTerm) || lastName.includes(lowerTerm) || dossier.includes(lowerTerm);
-        });
-        return results;
-    }, [neonRecords, searchTerm]);
+        // 4. Search Term
+        if (searchTerm) {
+            const lowerTerm = String(searchTerm).toLowerCase().trim();
+            result = result.filter(r => {
+                const firstName = r.first_name ? String(r.first_name).toLowerCase() : '';
+                const lastName = r.last_name ? String(r.last_name).toLowerCase() : '';
+                const dossier = r.dossier_number ? String(r.dossier_number).toLowerCase() : '';
+                return firstName.includes(lowerTerm) || lastName.includes(lowerTerm) || dossier.includes(lowerTerm);
+            });
+        }
+
+        return result;
+    }, [neonRecords, searchTerm, filterDate, filterStatus]);
+
+    // Get unique dates for filter dropdown
+    const availableDates = useMemo(() => {
+        const dates = new Set(neonRecords.map(r => r.planning_day).filter(Boolean));
+        return Array.from(dates).sort();
+    }, [neonRecords]);
+
+    // ... (existing handlers)
+
 
     const toggleSelection = (id: number) => {
         const newSet = new Set(selectedRecordIds);
@@ -145,19 +187,18 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
         setLoading(true);
 
         try {
-            const updates: Partial<MedicalRecord> = {
-                sync_status: 'synced', // Direct update
+            const updates: Record<string, any> = {
                 updated_at: new Date().toISOString()
             };
 
             if (activeTab === 'pre-op') {
                 if (bulkPreOpCall !== null) {
                     updates.pre_op_call = bulkPreOpCall ? 1 : 0;
-                    updates.pre_op_call_at = bulkPreOpCall ? new Date().toISOString() : '';
+                    updates.pre_op_call_at = bulkPreOpCall ? new Date().toISOString() : null;
                 }
                 if (bulkPreOpCheck !== null) {
-                    updates.pre_op_checked = bulkPreOpCheck ? 1 : 0;
-                    updates.pre_op_checked_at = bulkPreOpCheck ? new Date().toISOString() : '';
+                    updates.pre_op_checked = bulkPreOpCheck; // boolean for Neon
+                    updates.pre_op_checked_at = bulkPreOpCheck ? new Date().toISOString() : null;
                 }
                 if (bulkBlockEntry) updates.block_entry_time = bulkBlockEntry;
             } else if (activeTab === 'bloc') {
@@ -216,44 +257,70 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
             {/* Header */}
             <header className="bg-white sticky top-0 z-40 border-b border-indigo-100 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center gap-4">
-                            <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
-                                ←
-                            </button>
-                            <h1 className="text-xl font-bold text-slate-800">{t('title')}</h1>
+                    <div className="flex flex-col gap-4 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
+                                    ←
+                                </button>
+                                <h1 className="text-xl font-bold text-slate-800">{t('title')}</h1>
+                            </div>
+                            <div className="flex bg-slate-100 p-1 rounded-lg">
+                                {/* ... existing tabs ... */}
+                                <button
+                                    onClick={() => setActiveTab('pre-op')}
+                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {t('tabs.preOp')}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('bloc')}
+                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {t('tabs.bloc')}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('post-op')}
+                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    {t('tabs.postOp')}
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex bg-slate-100 p-1 rounded-lg">
-                            <button
-                                onClick={() => setActiveTab('pre-op')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                {t('tabs.preOp')}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('bloc')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                {t('tabs.bloc')}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('post-op')}
-                                className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                {t('tabs.postOp')}
-                            </button>
-                        </div>
-                    </div>
 
-                    {/* Search Bar */}
-                    <div className="py-3">
-                        <input
-                            type="text"
-                            placeholder={t('searchPlaceholder')}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
+                        {/* Filters & Search */}
+                        <div className="flex flex-wrap gap-3">
+                            <input
+                                type="text"
+                                placeholder={t('searchPlaceholder')}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="flex-1 min-w-[200px] p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                            />
+
+                            <select
+                                value={filterDate}
+                                onChange={(e) => setFilterDate(e.target.value)}
+                                className="p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700"
+                            >
+                                <option value="">📅 {t('filters.allDates') || 'Toutes les dates'}</option>
+                                {availableDates.map(date => (
+                                    <option key={date as string} value={date as string}>{date as string}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                value={filterStatus}
+                                onChange={(e) => setFilterStatus(e.target.value)}
+                                className="p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700"
+                            >
+                                <option value="all">🔍 {t('filters.allStatuses') || 'Tous les statuts'}</option>
+                                <option value="present_pending">🏥 Présent (En attente)</option>
+                                <option value="in_block">😷 Au Bloc</option>
+                                <option value="post_op">🛏️ En Post-Op</option>
+                                <option value="discharged">✅ Sortie</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -298,6 +365,11 @@ export default function WorkflowManager({ currentEdition, onBack }: WorkflowMana
                                         </div>
                                         <div className="text-sm text-slate-500 flex items-center gap-3">
                                             <span>{record.age} ans</span>
+                                            {record.planning_day && (
+                                                <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">
+                                                    📅 {record.planning_day}
+                                                </span>
+                                            )}
                                             <span>•</span>
                                             <span className="truncate max-w-[200px]">{record.intervention_type || t('status.undefinedIntervention')}</span>
                                         </div>

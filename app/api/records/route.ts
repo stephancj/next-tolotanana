@@ -64,11 +64,28 @@ export async function PATCH(req: Request) {
             return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
         }
 
+        // --- SANITIZAITON ---
+        const sanitizedUpdates: any = { ...updates };
+        const dateFields = ['pre_op_call_at', 'pre_op_checked_at'];
+
+        // 1. Sanitize Date Fields
+        dateFields.forEach(field => {
+            if (field in updates) {
+                const val = updates[field];
+                sanitizedUpdates[field] = val ? new Date(val) : null;
+            }
+        });
+
+        // 2. Sanitize Booleans (just in case they come as numbers/strings)
+        if ('pre_op_checked' in updates) {
+            sanitizedUpdates.pre_op_checked = Boolean(updates.pre_op_checked);
+        }
+
+        // 3. Always update updated_at
+        sanitizedUpdates.updated_at = new Date();
+
         const result = await db.update(medicalRecords)
-            .set({
-                ...updates,
-                updated_at: new Date()
-            })
+            .set(sanitizedUpdates)
             .where(eq(medicalRecords.id, id))
             .returning();
 
