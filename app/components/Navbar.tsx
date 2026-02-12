@@ -13,7 +13,7 @@ export default function Navbar() {
     const t = useTranslations('dashboard');
     const router = useRouter();
     const pathname = usePathname();
-    const { currentEdition } = useEdition();
+    const { currentEdition, setShowEditionSelector } = useEdition();
 
     const handleNavigate = (path: string) => {
         router.push(path);
@@ -55,6 +55,13 @@ export default function Navbar() {
                     {/* Desktop Menu */}
                     <div className="hidden lg:flex items-center gap-2">
 
+                        <button
+                            onClick={() => setShowEditionSelector(true)}
+                            title="Changer d'édition"
+                            className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
                         <LanguageSwitcher />
                         <div className="h-6 w-px bg-slate-200 mx-2"></div>
                         {menuItems.map((item) => {
@@ -76,7 +83,14 @@ export default function Navbar() {
                     </div>
 
                     {/* Mobile Menu Button */}
-                    <div className="flex items-center gap-4 lg:hidden">
+                    <div className="flex items-center gap-2 lg:hidden">
+                        <button
+                            onClick={() => setShowEditionSelector(true)}
+                            title="Changer d'édition"
+                            className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
                         <LanguageSwitcher />
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
