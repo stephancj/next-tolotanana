@@ -490,6 +490,133 @@
       "toBeDefined": "To be defined"
     }
   },
+  "guide": {
+    "title": "User Guide",
+    "subtitle": "Application Manual",
+    "nav": "Guide",
+    "toc": "Table of Contents",
+    "sections": {
+      "gettingStarted": {
+        "title": "Getting Started",
+        "icon": "rocket",
+        "description": "Welcome to ToloTanana, the medical records management application for surgical missions.",
+        "steps": {
+          "step1": "On first launch, the application asks you to select an edition (medical mission).",
+          "step2": "Click the refresh icon in the navigation bar to sync and retrieve available editions.",
+          "step3": "Select the edition you want to work on. All data will be filtered for this mission.",
+          "step4": "You can switch editions at any time by clicking the refresh icon in the navigation bar."
+        },
+        "tip": "The application works offline. Your data is saved locally and automatically synchronized when you are connected."
+      },
+      "dashboard": {
+        "title": "Dashboard",
+        "icon": "layout",
+        "description": "The dashboard is the home page that provides an overview of the current mission.",
+        "features": {
+          "stats": "Global statistics: total patients, scheduled patients, fill rate.",
+          "gender": "Gender distribution with scheduling status.",
+          "origin": "Geographic origin of patients.",
+          "recent": "List of recently registered patients.",
+          "performance": "Operating room performance: completed operations, average durations.",
+          "clinical": "Clinical analysis: anesthesia types, diagnosis categories, intervention types."
+        }
+      },
+      "newPatient": {
+        "title": "New Patient",
+        "icon": "plus",
+        "description": "Create a medical record for a new patient.",
+        "steps": {
+          "step1": "Click \"New\" in the navigation bar.",
+          "step2": "Fill in the file number (required).",
+          "step3": "Complete the patient identity: last name, first name, date of birth, gender.",
+          "step4": "Add contact information: phone, address, distance.",
+          "step5": "Enter vital signs: weight, height, blood pressure, pulse, etc.",
+          "step6": "Fill in the surgical consultation: diagnosis, intervention type.",
+          "step7": "If the patient needs surgery, check \"To Schedule\" and select a day.",
+          "step8": "Complete the pre-anesthetic consultation: medical history, ASA score, anesthesia type.",
+          "step9": "Click \"Save\" to save the record."
+        },
+        "tip": "The record is saved locally immediately, then synchronized with the server in the background."
+      },
+      "patientList": {
+        "title": "Patient List",
+        "icon": "folder",
+        "description": "View, search, and manage all patient records for the mission.",
+        "features": {
+          "search": "Quick search bar by name, first name, file number, or address.",
+          "filters": "Advanced filters with multiple criteria (contains, equals, starts with, etc.).",
+          "sort": "Column sorting: click a header to sort.",
+          "tabs": "Local / Server tabs to switch between local and remote data.",
+          "export": "CSV export to download the complete list.",
+          "details": "Click on a patient to view their detailed record.",
+          "edit": "Edit a record by clicking the edit button.",
+          "delete": "Delete a record (soft delete, recoverable)."
+        }
+      },
+      "team": {
+        "title": "Team Management",
+        "icon": "stethoscope",
+        "description": "Manage the medical team participating in the mission (surgeons, anesthetists, nurses, etc.).",
+        "steps": {
+          "step1": "Access the \"Team\" page from the navigation bar.",
+          "step2": "Add a new member by entering their name and specialty.",
+          "step3": "Assign members to the current edition by clicking \"Assign\".",
+          "step4": "Assigned members will be available when entering operation data."
+        }
+      },
+      "planning": {
+        "title": "Surgical Planning",
+        "icon": "calendar",
+        "description": "View and manage the weekly surgical schedule.",
+        "features": {
+          "weekView": "Day-by-day view (Monday to Friday).",
+          "patientCards": "Each scheduled patient appears with their diagnosis and intervention type.",
+          "status": "Visual indicators: pre-op verified, OR data recorded.",
+          "actions": "Quick access to edit form or OR data entry."
+        },
+        "howTo": "To add a patient to the planning, create or edit their record, check \"To Schedule\" and select a day."
+      },
+      "workflow": {
+        "title": "Operation Workflow",
+        "icon": "zap",
+        "description": "Manage the day's surgical workflow with bulk data entry.",
+        "tabs": {
+          "preOp": "Pre-Op: Validate pre-operative calls and patient presence on the day.",
+          "bloc": "OR: Record entry/exit times, intervention details, surgical team, prescriptions.",
+          "postOp": "Post-Op: Manage recovery room setup and final discharges."
+        },
+        "features": {
+          "bulkActions": "Select multiple patients to apply bulk actions.",
+          "search": "Search for a patient by name or file number.",
+          "filters": "Filter by date or status (pending, in OR, post-op, discharged).",
+          "realtime": "Updates are saved immediately."
+        }
+      },
+      "sync": {
+        "title": "Offline Mode & Synchronization",
+        "icon": "wifi",
+        "description": "The application works entirely offline and syncs when a connection is available.",
+        "features": {
+          "offline": "All data is stored locally on your device.",
+          "autoSync": "Automatic synchronization runs every 30 seconds when connected.",
+          "manualSync": "Click the sync indicator to force a manual synchronization.",
+          "status": "The indicator at the top of each page shows status: ONLINE, OFFLINE, or SYNCING.",
+          "conflicts": "In case of conflict, the last modification wins (last-write-wins)."
+        },
+        "tip": "You can work without internet. Changes will be sent to the server as soon as the connection is restored."
+      },
+      "language": {
+        "title": "Change Language",
+        "icon": "globe",
+        "description": "The application is available in French and English.",
+        "steps": {
+          "step1": "Click the language selector (FR/EN) in the navigation bar.",
+          "step2": "The interface updates instantly in the chosen language.",
+          "step3": "Your preference is saved and preserved for your next visits."
+        }
+      }
+    }
+  },
   "errors": {
     "loadingEdition": "Error loading edition:"
   }

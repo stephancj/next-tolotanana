@@ -490,6 +490,133 @@
       "toBeDefined": "A définir"
     }
   },
+  "guide": {
+    "title": "Guide d'Utilisation",
+    "subtitle": "Manuel de l'Application",
+    "nav": "Guide",
+    "toc": "Sommaire",
+    "sections": {
+      "gettingStarted": {
+        "title": "Premiers Pas",
+        "icon": "rocket",
+        "description": "Bienvenue dans ToloTanana, l'application de gestion des dossiers médicaux pour les missions chirurgicales.",
+        "steps": {
+          "step1": "Au premier lancement, l'application vous demande de sélectionner une édition (mission médicale).",
+          "step2": "Cliquez sur l'icône de rafraîchissement dans la barre de navigation pour synchroniser et récupérer les éditions disponibles.",
+          "step3": "Sélectionnez l'édition sur laquelle vous souhaitez travailler. Toutes les données seront filtrées pour cette mission.",
+          "step4": "Vous pouvez changer d'édition à tout moment en cliquant sur l'icône de rafraîchissement dans la barre de navigation."
+        },
+        "tip": "L'application fonctionne hors ligne. Vos données sont sauvegardées localement et synchronisées automatiquement lorsque vous êtes connecté."
+      },
+      "dashboard": {
+        "title": "Tableau de Bord",
+        "icon": "layout",
+        "description": "Le tableau de bord est la page d'accueil qui offre une vue d'ensemble de la mission en cours.",
+        "features": {
+          "stats": "Statistiques globales : nombre total de patients, patients programmés, taux de remplissage.",
+          "gender": "Répartition par genre avec les statuts de programmation.",
+          "origin": "Provenance géographique des patients.",
+          "recent": "Liste des derniers patients inscrits.",
+          "performance": "Performance du bloc opératoire : opérations réalisées, durées moyennes.",
+          "clinical": "Analyses cliniques : types d'anesthésie, catégories de diagnostics, types d'interventions."
+        }
+      },
+      "newPatient": {
+        "title": "Nouveau Patient",
+        "icon": "plus",
+        "description": "Créer une fiche médicale pour un nouveau patient.",
+        "steps": {
+          "step1": "Cliquez sur \"Nouveau\" dans la barre de navigation.",
+          "step2": "Remplissez le numéro de dossier (obligatoire).",
+          "step3": "Complétez l'identité du patient : nom, prénom, date de naissance, genre.",
+          "step4": "Ajoutez les informations de contact : téléphone, adresse, distance.",
+          "step5": "Saisissez les paramètres vitaux : poids, taille, tension, pouls, etc.",
+          "step6": "Renseignez la consultation chirurgicale : diagnostic, type d'intervention.",
+          "step7": "Si le patient doit être opéré, cochez \"À programmer\" et sélectionnez un jour.",
+          "step8": "Complétez la consultation pré-anesthésique : antécédents, score ASA, type d'anesthésie.",
+          "step9": "Cliquez sur \"Enregistrer\" pour sauvegarder la fiche."
+        },
+        "tip": "La fiche est sauvegardée localement immédiatement, puis synchronisée avec le serveur en arrière-plan."
+      },
+      "patientList": {
+        "title": "Liste des Patients",
+        "icon": "folder",
+        "description": "Consultez, recherchez et gérez tous les dossiers patients de la mission.",
+        "features": {
+          "search": "Barre de recherche rapide par nom, prénom, numéro de dossier ou adresse.",
+          "filters": "Filtres avancés avec critères multiples (contient, égal à, commence par, etc.).",
+          "sort": "Tri par colonne : cliquez sur un en-tête pour trier.",
+          "tabs": "Onglets Local / Serveur pour basculer entre les données locales et distantes.",
+          "export": "Export CSV pour télécharger la liste complète.",
+          "details": "Cliquez sur un patient pour voir sa fiche détaillée.",
+          "edit": "Modifiez un dossier en cliquant sur le bouton d'édition.",
+          "delete": "Supprimez un dossier (suppression logique, récupérable)."
+        }
+      },
+      "team": {
+        "title": "Gestion de l'Équipe",
+        "icon": "stethoscope",
+        "description": "Gérez l'équipe médicale participant à la mission (chirurgiens, anesthésistes, infirmiers, etc.).",
+        "steps": {
+          "step1": "Accédez à la page \"Équipe\" depuis la barre de navigation.",
+          "step2": "Ajoutez un nouveau membre en saisissant son nom et sa spécialité.",
+          "step3": "Assignez les membres à l'édition en cours en cliquant sur \"Assigner\".",
+          "step4": "Les membres assignés seront disponibles lors de la saisie des opérations."
+        }
+      },
+      "planning": {
+        "title": "Planning Opératoire",
+        "icon": "calendar",
+        "description": "Visualisez et gérez le programme chirurgical de la semaine.",
+        "features": {
+          "weekView": "Vue par jour de la semaine (Lundi à Vendredi).",
+          "patientCards": "Chaque patient programmé apparaît avec son diagnostic et le type d'intervention.",
+          "status": "Indicateurs visuels : pré-op vérifié, données du bloc enregistrées.",
+          "actions": "Accédez rapidement au formulaire d'édition ou à la saisie du bloc."
+        },
+        "howTo": "Pour ajouter un patient au planning, créez ou modifiez sa fiche, cochez \"À programmer\" et sélectionnez un jour."
+      },
+      "workflow": {
+        "title": "Workflow Opératoire",
+        "icon": "zap",
+        "description": "Gérez le flux opératoire du jour avec la saisie groupée.",
+        "tabs": {
+          "preOp": "Pré-Op : Validez les appels pré-opératoires et la présence des patients le jour J.",
+          "bloc": "Bloc : Enregistrez les heures d'entrée/sortie, les détails d'intervention, l'équipe chirurgicale, les prescriptions.",
+          "postOp": "Post-Op : Gérez l'installation en salle de réveil et les sorties définitives."
+        },
+        "features": {
+          "bulkActions": "Sélectionnez plusieurs patients pour appliquer des actions groupées.",
+          "search": "Recherchez un patient par nom ou numéro de dossier.",
+          "filters": "Filtrez par date ou par statut (en attente, au bloc, en post-op, sorti).",
+          "realtime": "Les mises à jour sont sauvegardées immédiatement."
+        }
+      },
+      "sync": {
+        "title": "Mode Hors Ligne et Synchronisation",
+        "icon": "wifi",
+        "description": "L'application fonctionne entièrement hors ligne et se synchronise quand une connexion est disponible.",
+        "features": {
+          "offline": "Toutes les données sont stockées localement sur votre appareil.",
+          "autoSync": "La synchronisation automatique s'exécute toutes les 30 secondes lorsque vous êtes connecté.",
+          "manualSync": "Cliquez sur l'indicateur de synchronisation pour forcer une synchronisation manuelle.",
+          "status": "L'indicateur en haut de chaque page affiche le statut : ONLINE, OFFLINE ou SYNCHRO.",
+          "conflicts": "En cas de conflit, la dernière modification l'emporte (last-write-wins)."
+        },
+        "tip": "Vous pouvez travailler sans internet. Les modifications seront envoyées au serveur dès que la connexion sera rétablie."
+      },
+      "language": {
+        "title": "Changer de Langue",
+        "icon": "globe",
+        "description": "L'application est disponible en français et en anglais.",
+        "steps": {
+          "step1": "Cliquez sur le sélecteur de langue (FR/EN) dans la barre de navigation.",
+          "step2": "L'interface se met à jour instantanément dans la langue choisie.",
+          "step3": "Votre préférence est sauvegardée et conservée lors de vos prochaines visites."
+        }
+      }
+    }
+  },
   "errors": {
     "loadingEdition": "Erreur lors du chargement de l'édition:"
   }

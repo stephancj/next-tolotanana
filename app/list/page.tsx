@@ -3,9 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, MedicalRecord } from '@/lib/client-db';
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { getAgeValue } from '@/lib/age-utils';
-import { useSync } from '@/app/hooks/useSync';
 import AdvancedSearch, { FilterCriterion } from '@/app/components/AdvancedSearch';
 import PatientDetailModal from '@/app/components/PatientDetailModal';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
@@ -44,7 +42,6 @@ const AgeDisplay = ({ age }: { age: string | number }) => {
 export default function ListPage() {
     const { currentEdition } = useEdition();
     const router = useRouter();
-    const { status, pendingCount, manualSync } = useSync();
     const [activeTab, setActiveTab] = useState<'local' | 'remote'>('local');
     const [remoteRecords, setRemoteRecords] = useState<MedicalRecord[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
@@ -283,46 +280,20 @@ export default function ListPage() {
             <div className="w-full max-w-[1600px] mx-auto p-4 md:p-8 pb-24">
 
                 {/* HEADER */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => router.push('/dashboard')} className="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-600 flex items-center justify-center transition-all shadow-sm">
-                            ←
-                        </button>
-                        <div>
-                            <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.database')}</h2>
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                                <Image src="/logo.png" alt="Logo" width={32} height={32} className="object-contain" />
-                                {t('header.patientsList')}
-                            </h1>
-                        </div>
+                <div className="flex items-center justify-between gap-4 mb-8 border-b border-gray-100 pb-6">
+                    <div>
+                        <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.database')}</h2>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                            {t('header.patientsList')}
+                        </h1>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-3">
                         <button onClick={downloadCSV} className="px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg shadow-sm border border-emerald-100 hover:bg-emerald-100 transition font-bold flex items-center gap-2 text-xs">
                             <span>📥</span> {t('buttons.export')} ({activeTab})
                         </button>
-
-                        <div className="w-px h-8 bg-gray-200 mx-2 hidden md:block"></div>
-
-                        {/* Sync Status */}
-                        <div
-                            onClick={manualSync}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
-                            title={tCommon('clickToSync')}
-                        >
-                            <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            {status === 'syncing' ? tCommon('syncing') : status === 'offline' ? tCommon('offline') : tCommon('online')}
-                            {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
-                        </div>
-
-                        {/* Edition Badge */}
-                        {currentEdition && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
-                                <span>📍 {currentEdition.place} • {currentEdition.year}</span>
-                                <span className="text-indigo-300">|</span>
-                                <span className="hidden sm:inline">{currentEdition.name}</span>
-                            </div>
-                        )}
+                        <button onClick={() => router.push('/dashboard')} className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm">
+                            <span>←</span> {tCommon('back')}
+                        </button>
                     </div>
                 </div>
 

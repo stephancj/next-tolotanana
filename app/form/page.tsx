@@ -1,13 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { calculateAge } from '@/lib/age-utils';
 import { MedicalRecord, db } from '@/lib/client-db';
 import { useEdition } from '@/app/providers/EditionProvider';
-import { useSync } from '@/app/hooks/useSync';
 import { useTranslations } from '@/app/providers/I18nProvider';
-import LanguageSwitcher from '@/app/components/LanguageSwitcher';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // Icons
@@ -159,7 +156,6 @@ export default function FormPage() {
     const searchParams = useSearchParams();
     const idParam = searchParams.get('id');
 
-    const { status, pendingCount, manualSync } = useSync();
     const [loading, setLoading] = useState(false);
     const [initialData, setInitialData] = useState<Partial<MedicalRecord> | null>(null);
 
@@ -331,40 +327,20 @@ export default function FormPage() {
     return (
         <div className="min-h-screen bg-slate-50/80 pb-32 font-[family-name:var(--font-geist-sans)]">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-40 border-b border-indigo-50 px-6 py-4 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
-                <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 px-6 py-4 shadow-sm">
+                <div className="max-w-[1600px] mx-auto flex items-center justify-between">
                     <div>
-                        <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
-                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain drop-shadow-md" />
-                            {t('header.subtitle').split(' ')[0]} <span className="text-indigo-600">{t('header.subtitle').split(' ').slice(1).join(' ')}</span>
+                        <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                            {t('header.subtitle')}
                         </h1>
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
-
-                        {/* Language Switcher */}
-                        <LanguageSwitcher />
-
-                        {/* Sync Status */}
-                        <div
-                            onClick={manualSync}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
-                            title={tCommon('clickToSync')}
-                        >
-                            <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                            {status === 'syncing' ? tCommon('syncing') : status === 'offline' ? tCommon('offline') : tCommon('online')}
-                            {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
-                        </div>
-
-                        {/* Edition Badge */}
-                        {currentEdition && (
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100">
-                                <span>📍 {currentEdition.place} • {currentEdition.year}</span>
-                                <span className="text-indigo-300">|</span>
-                                <span className="hidden sm:inline">{currentEdition.name}</span>
-                            </div>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => router.push('/dashboard')}
+                        className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm"
+                    >
+                        <span>←</span> {tCommon('back')}
+                    </button>
                 </div>
             </header>
 

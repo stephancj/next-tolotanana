@@ -5,6 +5,8 @@ import { MedicalRecord, Edition, Surgeon } from '@/lib/client-db';
 import { useTranslations } from '@/app/providers/I18nProvider';
 import { useEdition } from '@/app/providers/EditionProvider';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+
+
 import { Phone, ClipboardCheck, LogIn, Pill, LogOut, BedDouble, Home, Search, Calendar, Filter } from 'lucide-react';
 
 export default function WorkflowPage() {
@@ -76,6 +78,7 @@ export default function WorkflowPage() {
     const [bulkDischargeNotes, setBulkDischargeNotes] = useState('');
 
     const t = useTranslations('workflow');
+    const tCommon = useTranslations('common');
 
     const [neonRecords, setNeonRecords] = useState<MedicalRecord[]>([]);
     const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
@@ -326,35 +329,37 @@ export default function WorkflowPage() {
     return (
         <div className="min-h-screen bg-slate-50 pb-32 font-[family-name:var(--font-geist-sans)]">
             {/* Header */}
-            <header className="bg-white sticky top-0 z-40 border-b border-indigo-100 shadow-sm">
+            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col gap-4 py-4">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => router.push('/dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
-                                    ←
-                                </button>
-                                <h1 className="text-xl font-bold text-slate-800">{t('title')}</h1>
+                            <div>
+                                <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Workflow</h2>
+                                <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{t('title')}</h1>
                             </div>
-                            <div className="flex bg-slate-100 p-1 rounded-lg">
-                                {/* ... existing tabs ... */}
-                                <button
-                                    onClick={() => setActiveTab('pre-op')}
-                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                >
-                                    {t('tabs.preOp')}
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('bloc')}
-                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                >
-                                    {t('tabs.bloc')}
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('post-op')}
-                                    className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                >
-                                    {t('tabs.postOp')}
+                            <div className="flex items-center gap-3">
+                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setActiveTab('pre-op')}
+                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        {t('tabs.preOp')}
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('bloc')}
+                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        {t('tabs.bloc')}
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('post-op')}
+                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                    >
+                                        {t('tabs.postOp')}
+                                    </button>
+                                </div>
+                                <button onClick={() => router.push('/dashboard')} className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm">
+                                    <span>←</span> {tCommon('back')}
                                 </button>
                             </div>
                         </div>

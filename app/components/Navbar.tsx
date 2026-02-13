@@ -4,21 +4,26 @@ import { useState } from 'react';
 import { useTranslations } from '../providers/I18nProvider';
 import LanguageSwitcher from './LanguageSwitcher';
 import Image from 'next/image';
-import { LayoutDashboard, Stethoscope, Calendar, Zap, FolderOpen, Plus, Menu, X, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Stethoscope, Calendar, Zap, FolderOpen, Plus, Menu, X, RefreshCw, HelpCircle } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEdition } from '../providers/EditionProvider';
+import { useSync } from '../hooks/useSync';
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const t = useTranslations('dashboard');
+    const tCommon = useTranslations('common');
     const router = useRouter();
     const pathname = usePathname();
     const { currentEdition, setShowEditionSelector } = useEdition();
+    const { status, pendingCount, manualSync } = useSync();
 
     const handleNavigate = (path: string) => {
         router.push(path);
         setIsMenuOpen(false);
     };
+
+    const tGuide = useTranslations('guide');
 
     const menuItems = [
         { id: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,6 +32,7 @@ export default function Navbar() {
         { id: '/workflow', label: t('buttons.workflow'), icon: Zap },
         { id: '/list', label: t('buttons.list'), icon: FolderOpen },
         { id: '/form', label: t('buttons.new'), icon: Plus },
+        { id: '/guide', label: tGuide('nav'), icon: HelpCircle },
     ];
 
     const currentPath = pathname || '/dashboard';
@@ -55,6 +61,16 @@ export default function Navbar() {
                     {/* Desktop Menu */}
                     <div className="hidden lg:flex items-center gap-2">
 
+                        {/* Sync Status */}
+                        <div
+                            onClick={manualSync}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
+                            title={tCommon('clickToSync')}
+                        >
+                            <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                            {status === 'syncing' ? tCommon('syncing') : status === 'offline' ? tCommon('offline') : tCommon('online')}
+                            {pendingCount > 0 && <span className="ml-1 bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
+                        </div>
                         <button
                             onClick={() => setShowEditionSelector(true)}
                             title="Changer d'édition"
@@ -84,6 +100,15 @@ export default function Navbar() {
 
                     {/* Mobile Menu Button */}
                     <div className="flex items-center gap-2 lg:hidden">
+                        {/* Sync Status (compact) */}
+                        <div
+                            onClick={manualSync}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer hover:opacity-80 ${status === 'offline' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-green-50 text-green-700 border-green-100'}`}
+                            title={tCommon('clickToSync')}
+                        >
+                            <span className={`w-2 h-2 rounded-full ${status === 'syncing' ? 'bg-yellow-400 animate-pulse' : status === 'offline' ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                            {pendingCount > 0 && <span className="bg-indigo-100 text-indigo-700 px-1.5 rounded-md">{pendingCount}</span>}
+                        </div>
                         <button
                             onClick={() => setShowEditionSelector(true)}
                             title="Changer d'édition"

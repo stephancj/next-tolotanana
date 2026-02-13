@@ -93,22 +93,17 @@ export default function PlanningPage() {
     return (
         <div className="min-h-screen bg-slate-50/80 pb-24 font-[family-name:var(--font-geist-sans)]">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-40 border-b border-indigo-50 px-6 py-4 shadow-sm">
+            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 px-6 py-4 shadow-sm">
                 <div className="max-w-[1600px] mx-auto flex items-center justify-between">
                     <div>
                         <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('title')}</h2>
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                            📅 {t('subtitle')}
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                            {t('subtitle')}
                         </h1>
-                        {currentEdition && (
-                            <p className="text-sm text-gray-500 mt-1">
-                                {currentEdition.name} - {currentEdition.place} {currentEdition.year}
-                            </p>
-                        )}
                     </div>
                     <button
                         onClick={() => router.push('/dashboard')}
-                        className="px-5 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2"
+                        className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm"
                     >
                         <span>←</span> {tCommon('back')}
                     </button>

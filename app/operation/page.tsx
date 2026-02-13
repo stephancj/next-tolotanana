@@ -128,26 +128,21 @@ function OperationFormContent() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 pb-32">
             {/* Header */}
-            <header className="bg-white/90 backdrop-blur-xl sticky top-0 z-40 border-b border-blue-100 shadow-lg">
-                <div className="max-w-[1400px] mx-auto px-6 py-5">
+            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 shadow-sm">
+                <div className="max-w-[1400px] mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
-                                <Icons.Activity />
-                            </div>
-                            <div>
-                                <h2 className="text-xs font-bold text-blue-500 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
-                                <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
-                                    {record.last_name} {record.first_name}
-                                </h1>
-                                <p className="text-sm text-slate-500 mt-0.5">
-                                    {record.intervention_type || 'Intervention'} • {record.planning_day}
-                                </p>
-                            </div>
+                        <div>
+                            <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
+                            <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                                {record.last_name} {record.first_name}
+                            </h1>
+                            <p className="text-sm text-slate-500 mt-0.5">
+                                {record.intervention_type || 'Intervention'} • {record.planning_day}
+                            </p>
                         </div>
                         <button
                             onClick={() => router.push('/planning')}
-                            className="px-6 py-3 bg-white text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all border border-slate-200 shadow-sm hover:shadow flex items-center gap-2"
+                            className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm"
                         >
                             <span>←</span> {tCommon('back')}
                         </button>

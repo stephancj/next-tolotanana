@@ -24,6 +24,7 @@ export default function TeamPage() {
     const [newSurgeonName, setNewSurgeonName] = useState('');
     const [newSpecialty, setNewSpecialty] = useState('');
     const t = useTranslations('surgeons');
+    const tCommon = useTranslations('common');
 
     const fetchData = useCallback(async () => {
         try {
@@ -118,7 +119,9 @@ export default function TeamPage() {
             <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg">
                 <div className="flex justify-between items-center mb-6 border-b pb-4">
                     <h2 className="text-2xl font-bold text-gray-800">{t('title')}</h2>
-                    <button onClick={() => router.push('/dashboard')} className="text-gray-500 hover:text-gray-700">{t('close')}</button>
+                    <button onClick={() => router.push('/dashboard')} className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm">
+                        <span>←</span> {tCommon('back')}
+                    </button>
                 </div>
 
                 {/* Create Surgeon Form */}

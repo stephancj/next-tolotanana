@@ -227,16 +227,12 @@ export default function Dashboard() {
             )}
 
             {/* HEADER */}
-            {/* HEADER */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-indigo-50 pb-6">
+            <div className="flex items-center justify-between gap-4 mb-8 border-b border-indigo-50 pb-6">
                 <div>
-                    <h2 className="text-[10px] md:text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
-                    <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                        📊 {t('header.subtitle')}
+                    <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+                        {t('header.subtitle')}
                     </h1>
-                    <p className="text-gray-500 mt-1">
-                        {currentEdition ? `${currentEdition.name} - ${currentEdition.place} ${currentEdition.year}` : t('header.noEdition')}
-                    </p>
                 </div>
             </div>
 
