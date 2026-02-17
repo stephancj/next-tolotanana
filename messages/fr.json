@@ -567,14 +567,19 @@
       "planning": {
         "title": "Planning Opératoire",
         "icon": "calendar",
-        "description": "Visualisez et gérez le programme chirurgical de la semaine.",
+        "description": "Planifiez les opérations de la semaine avec le tableau Kanban interactif.",
         "features": {
-          "weekView": "Vue par jour de la semaine (Lundi à Vendredi).",
-          "patientCards": "Chaque patient programmé apparaît avec son diagnostic et le type d'intervention.",
-          "status": "Indicateurs visuels : pré-op vérifié, données du bloc enregistrées.",
-          "actions": "Accédez rapidement au formulaire d'édition ou à la saisie du bloc."
+          "kanban": "Tableau Kanban avec une colonne \"Non planifiés\" (pool) et 5 colonnes de jours (Lundi à Vendredi).",
+          "dragDrop": "Glissez-déposez les patients entre les colonnes pour les assigner à un jour.",
+          "dropdown": "Chaque carte patient dispose aussi d'un menu déroulant pour changer de jour (pratique sur mobile).",
+          "autoSuggest": "Bouton \"Auto-planifier\" : place automatiquement les patients non planifiés en priorisant les plus éloignés et les bébés en début de semaine.",
+          "bulkAssign": "Sélectionnez plusieurs patients dans le pool puis assignez-les en un clic à un jour via la barre d'actions groupées.",
+          "surgeonAssign": "Cliquez sur l'icône chirurgien de chaque carte pour assigner un ou plusieurs chirurgiens au patient.",
+          "surgeonStats": "Bouton \"Stats\" : tableau récapitulatif du nombre de patients par chirurgien et par jour, avec le détail par catégorie de diagnostic.",
+          "filters": "Filtrez le pool par distance (en ville, un peu loin, loin), catégorie de diagnostic, ou tranche d'âge (bébés, enfants, adultes).",
+          "save": "Les modifications sont en mémoire jusqu'à ce que vous cliquiez \"Sauver\" — un compteur indique le nombre de changements en attente."
         },
-        "howTo": "Pour ajouter un patient au planning, créez ou modifiez sa fiche, cochez \"À programmer\" et sélectionnez un jour."
+        "howTo": "Pour ajouter un patient au planning, créez ou modifiez sa fiche, cochez \"Programmé pour la mission\" et il apparaîtra dans le pool. Ensuite, utilisez le tableau de planification pour l'assigner à un jour."
       },
       "workflow": {
         "title": "Workflow Opératoire",

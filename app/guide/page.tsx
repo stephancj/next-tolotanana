@@ -99,7 +99,7 @@ function getFeatureKeys(sectionKey: SectionKey): string[] {
         case 'patientList':
             return ['search', 'filters', 'sort', 'tabs', 'export', 'details', 'edit', 'delete'];
         case 'planning':
-            return ['weekView', 'patientCards', 'status', 'actions'];
+            return ['kanban', 'dragDrop', 'dropdown', 'autoSuggest', 'bulkAssign', 'surgeonAssign', 'surgeonStats', 'filters', 'save'];
         case 'sync':
             return ['offline', 'autoSync', 'manualSync', 'status', 'conflicts'];
         default:

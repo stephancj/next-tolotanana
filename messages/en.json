@@ -567,14 +567,19 @@
       "planning": {
         "title": "Surgical Planning",
         "icon": "calendar",
-        "description": "View and manage the weekly surgical schedule.",
+        "description": "Plan the week's operations with the interactive Kanban board.",
         "features": {
-          "weekView": "Day-by-day view (Monday to Friday).",
-          "patientCards": "Each scheduled patient appears with their diagnosis and intervention type.",
-          "status": "Visual indicators: pre-op verified, OR data recorded.",
-          "actions": "Quick access to edit form or OR data entry."
+          "kanban": "Kanban board with an \"Unplanned\" pool column and 5 day columns (Monday to Friday).",
+          "dragDrop": "Drag and drop patients between columns to assign them to a day.",
+          "dropdown": "Each patient card also has a dropdown menu to change the day (handy on mobile).",
+          "autoSuggest": "\"Auto-plan\" button: automatically places unplanned patients, prioritizing far-away patients and babies at the beginning of the week.",
+          "bulkAssign": "Select multiple patients in the pool then assign them to a day in one click via the bulk action bar.",
+          "surgeonAssign": "Click the surgeon icon on each card to assign one or more surgeons to the patient.",
+          "surgeonStats": "\"Stats\" button: summary table showing the number of patients per surgeon per day, with breakdown by diagnosis category.",
+          "filters": "Filter the pool by distance (in town, somewhat far, far), diagnosis category, or age range (babies, children, adults).",
+          "save": "Changes are held in memory until you click \"Save\" — a counter shows the number of pending changes."
         },
-        "howTo": "To add a patient to the planning, create or edit their record, check \"To Schedule\" and select a day."
+        "howTo": "To add a patient to the planning, create or edit their record, check \"Scheduled for mission\" and they will appear in the pool. Then use the planning board to assign them to a day."
       },
       "workflow": {
         "title": "Operation Workflow",
