@@ -14,6 +14,7 @@ interface DayColumnProps {
     onToggleSelect: (id: number) => void;
     onAssignSurgeon: (patientId: number) => void;
     onChangePlanningDay: (patientId: number, day: string) => void;
+    onClickCard: (patientId: number) => void;
     isPool?: boolean;
 }
 
@@ -26,6 +27,7 @@ export default function DayColumn({
     onToggleSelect,
     onAssignSurgeon,
     onChangePlanningDay,
+    onClickCard,
     isPool = false,
 }: DayColumnProps) {
     const { setNodeRef, isOver } = useDroppable({ id: `column-${day}` });
@@ -84,6 +86,7 @@ export default function DayColumn({
                                 onToggleSelect={onToggleSelect}
                                 onAssignSurgeon={onAssignSurgeon}
                                 onChangePlanningDay={onChangePlanningDay}
+                                onClickCard={onClickCard}
                             />
                         ))
                     )}

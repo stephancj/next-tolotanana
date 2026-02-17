@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { UserRound } from 'lucide-react';
+import { UserRound, ExternalLink } from 'lucide-react';
 import { PatientCardData, SurgeonData } from '@/lib/planning-utils';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
@@ -30,6 +30,7 @@ interface PatientCardProps {
     onToggleSelect: (id: number) => void;
     onAssignSurgeon: (patientId: number) => void;
     onChangePlanningDay: (patientId: number, day: string) => void;
+    onClickCard: (patientId: number) => void;
 }
 
 export default function PatientCard({
@@ -40,6 +41,7 @@ export default function PatientCard({
     onToggleSelect,
     onAssignSurgeon,
     onChangePlanningDay,
+    onClickCard,
 }: PatientCardProps) {
     const {
         attributes,
@@ -161,6 +163,15 @@ export default function PatientCard({
                         >
                             <UserRound size={12} />
                             {assignedSurgeons.length > 0 ? assignedSurgeons.length : '+'}
+                        </button>
+
+                        {/* Open operation / record */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onClickCard(patient.id); }}
+                            className="text-xs px-1.5 py-1 rounded-lg bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200 transition-colors flex items-center gap-1"
+                            title="Ouvrir le dossier"
+                        >
+                            <ExternalLink size={12} />
                         </button>
                     </div>
                 </div>

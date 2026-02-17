@@ -13,6 +13,7 @@ import {
     DragEndEvent,
 } from '@dnd-kit/core';
 import { Wand2, BarChart3, Save, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEdition } from '@/app/providers/EditionProvider';
 import { Edition } from '@/lib/client-db';
 import { PatientCardData, SurgeonData, autoSuggestPlacements, getAgeCategory } from '@/lib/planning-utils';
@@ -37,6 +38,7 @@ const columnIdToDay: Record<string, string> = {
 
 export default function PlanningBoard() {
     const { currentEdition } = useEdition();
+    const router = useRouter();
 
     // Data state
     const [records, setRecords] = useState<PatientCardData[]>([]);
@@ -476,6 +478,7 @@ export default function PlanningBoard() {
                                 onToggleSelect={togglePoolSelect}
                                 onAssignSurgeon={(id) => setSurgeonPopoverPatientId(id)}
                                 onChangePlanningDay={updateRecordDay}
+                                onClickCard={(id) => router.push(`/operation?id=${id}`)}
                                 isPool
                             />
 
@@ -491,6 +494,7 @@ export default function PlanningBoard() {
                                     onToggleSelect={() => {}}
                                     onAssignSurgeon={(id) => setSurgeonPopoverPatientId(id)}
                                     onChangePlanningDay={updateRecordDay}
+                                    onClickCard={(id) => router.push(`/operation?id=${id}`)}
                                 />
                             ))}
                         </div>
@@ -507,6 +511,7 @@ export default function PlanningBoard() {
                                         onToggleSelect={() => {}}
                                         onAssignSurgeon={() => {}}
                                         onChangePlanningDay={() => {}}
+                                        onClickCard={() => {}}
                                     />
                                 </div>
                             )}
