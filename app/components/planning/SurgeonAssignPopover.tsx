@@ -37,18 +37,19 @@ export default function SurgeonAssignPopover({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+                role="dialog" aria-modal="true" aria-labelledby="assign-surgeon-title"
+                className="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="text-sm font-bold text-slate-800">Assigner chirurgien(s)</h3>
+                        <h3 id="assign-surgeon-title" className="text-sm font-bold text-slate-800">Assigner chirurgien(s)</h3>
                         <p className="text-xs text-slate-500 mt-0.5">
                             {patient.last_name} {patient.first_name} — #{patient.dossier_number}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <button onClick={onClose} aria-label="Fermer" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
                         <X size={18} />
                     </button>
                 </div>

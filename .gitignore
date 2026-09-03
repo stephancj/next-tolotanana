@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local design tooling
+.impeccable/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Encrypted database backups (store outside the repository)
+backups/

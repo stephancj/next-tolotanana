@@ -1,0 +1,1 @@
+ALTER TABLE "editions" ADD COLUMN "registration_open" boolean DEFAULT false NOT NULL;

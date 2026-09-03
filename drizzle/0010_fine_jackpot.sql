@@ -1,0 +1,1 @@
+ALTER TABLE "volunteer_registrations" ADD COLUMN "assigned_commission" text;

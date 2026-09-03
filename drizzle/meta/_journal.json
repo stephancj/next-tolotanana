@@ -15,6 +15,83 @@
       "when": 1770104233269,
       "tag": "0001_living_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785358145999,
+      "tag": "0002_skinny_lorna_dane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785359069752,
+      "tag": "0003_orange_mystique",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785359172988,
+      "tag": "0004_magenta_carnage",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785360376167,
+      "tag": "0005_wet_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788353566917,
+      "tag": "0006_magical_spirit",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788354986189,
+      "tag": "0007_glossy_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788356203811,
+      "tag": "0008_clever_loa",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788356687565,
+      "tag": "0009_gray_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788357867765,
+      "tag": "0010_fine_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788358820582,
+      "tag": "0011_dusty_the_call",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788380938393,
+      "tag": "0012_aspiring_randall",
+      "breakpoints": true
     }
   ]
 }

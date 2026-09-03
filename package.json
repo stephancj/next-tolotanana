@@ -11,7 +11,12 @@
     "recalculate:ages": "tsx scripts/recalculate-ages-neon.ts",
     "migrate:sqlite-editions": "tsx scripts/migrate-sqlite-editions.ts",
     "migrate:neon-editions": "tsx scripts/migrate-neon-editions.ts",
-    "migrate:all-editions": "tsx scripts/migrate-sqlite-editions.ts && tsx scripts/migrate-neon-editions.ts"
+    "migrate:all-editions": "tsx scripts/migrate-sqlite-editions.ts && tsx scripts/migrate-neon-editions.ts",
+    "db:migrate": "drizzle-kit migrate",
+    "db:generate": "drizzle-kit generate",
+    "db:backup": "tsx scripts/backup-neon.ts",
+    "db:restore": "tsx scripts/restore-neon.ts",
+    "db:cleanup-sync": "tsx scripts/cleanup-sync.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

@@ -1,9 +1,9 @@
-import { pgTable, text, integer, real, boolean, timestamp, serial, uuid, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, real, boolean, timestamp, serial, uuid, primaryKey, jsonb, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 export const editions = pgTable('editions', {
     id: serial('id').primaryKey(),
-    public_id: uuid('public_id').notNull(),
+    public_id: uuid('public_id').notNull().unique(),
     name: text('name').notNull(),
     place: text('place').notNull(),
     year: integer('year').notNull(),
@@ -11,6 +11,7 @@ export const editions = pgTable('editions', {
     end_date: text('end_date'),
     description: text('description'),
     is_active: integer('is_active').default(1),
+    registration_open: boolean('registration_open').notNull().default(false),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
     deleted: boolean('deleted').default(false)
@@ -26,7 +27,8 @@ export const surgeons = pgTable('surgeons', {
     is_active: integer('is_active').default(1),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
-    deleted: boolean('deleted').default(false)
+    deleted: boolean('deleted').default(false),
+    revision: integer('revision').notNull().default(1)
 });
 
 export const editionSurgeons = pgTable('edition_surgeons', {
@@ -105,8 +107,102 @@ export const medicalRecords = pgTable('medical_records', {
     // Sync Metadata
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
-    deleted: boolean('deleted').default(false)
+    deleted: boolean('deleted').default(false),
+    revision: integer('revision').notNull().default(1)
 });
+
+// Durable idempotency receipts: retrying a mutation cannot apply it twice.
+export const syncEntityVersions = pgTable('sync_entity_versions', {
+    entity: text('entity').notNull(),
+    public_id: uuid('public_id').notNull(),
+    revision: integer('revision').notNull().default(0),
+    updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (t) => [primaryKey({ columns: [t.entity, t.public_id] })]);
+
+export const syncDevices = pgTable('sync_devices', {
+    device_id: uuid('device_id').primaryKey(),
+    last_cursor: integer('last_cursor').notNull().default(0),
+    last_seen_at: timestamp('last_seen_at').defaultNow().notNull(),
+    last_error: text('last_error'),
+    app_version: text('app_version')
+});
+
+export const syncMutations = pgTable('sync_mutations', {
+    mutation_id: uuid('mutation_id').primaryKey(),
+    entity: text('entity').notNull(),
+    public_id: uuid('public_id').notNull(),
+    revision: integer('revision').notNull(),
+    processed_at: timestamp('processed_at').defaultNow().notNull()
+});
+
+// Monotonic pull cursor. Payload keeps a stable snapshot for deterministic pulls.
+export const syncChanges = pgTable('sync_changes', {
+    id: serial('id').primaryKey(),
+    entity: text('entity').notNull(),
+    public_id: uuid('public_id').notNull(),
+    revision: integer('revision').notNull(),
+    payload: jsonb('payload').notNull(),
+    changed_at: timestamp('changed_at').defaultNow().notNull()
+});
+
+// Append-only medical audit trail. Application routes only INSERT into this table.
+export const medicalAuditLog = pgTable('medical_audit_log', {
+    id: serial('id').primaryKey(),
+    medical_record_public_id: uuid('medical_record_public_id').notNull(),
+    mutation_id: uuid('mutation_id'),
+    action: text('action').notNull(), // create, update, delete, restore, relation_update
+    source: text('source').notNull(), // sync, api
+    device_id: uuid('device_id'),
+    user_id: text('user_id'), // ready for authentication later
+    changed_fields: jsonb('changed_fields').notNull(),
+    before_data: jsonb('before_data'),
+    after_data: jsonb('after_data'),
+    occurred_at: timestamp('occurred_at'), // client action time; created_at is authoritative receipt time
+    created_at: timestamp('created_at').defaultNow().notNull()
+}, (t) => [
+    index('medical_audit_record_id_idx').on(t.medical_record_public_id, t.id),
+    index('medical_audit_mutation_idx').on(t.mutation_id)
+]);
+
+export const volunteerRegistrations = pgTable('volunteer_registrations', {
+    id: serial('id').primaryKey(),
+    public_id: uuid('public_id').notNull().unique(),
+    edition_id: integer('edition_id').notNull().references(() => editions.id),
+    first_name: text('first_name').notNull(),
+    last_name: text('last_name').notNull(),
+    email: text('email').notNull(),
+    phone: text('phone').notNull(),
+    organization_type: text('organization_type').notNull().default('rotaract'),
+    club_name: text('club_name').notNull(),
+    club_status: text('club_status').notNull().default('membre'),
+    city: text('city'),
+    preferred_roles: text('preferred_roles').array().notNull(),
+    availability: text('availability').notNull(),
+    available_full_mission: boolean('available_full_mission').notNull().default(false),
+    available_dates: jsonb('available_dates').notNull().default([]),
+    has_previous_experience: boolean('has_previous_experience').notNull().default(false),
+    previous_editions: jsonb('previous_editions').notNull().default([]),
+    engagement_experience: text('engagement_experience'),
+    skills: text('skills').array().notNull().default([]),
+    other_skills: text('other_skills'),
+    preferred_commissions: text('preferred_commissions').array().notNull().default([]),
+    motivation: text('motivation'),
+    contribution: text('contribution'),
+    tshirt_size: text('tshirt_size'),
+    dietary_preference: text('dietary_preference'),
+    dietary_details: text('dietary_details'),
+    allergies: text('allergies'),
+    emergency_contact_name: text('emergency_contact_name'),
+    emergency_contact_phone: text('emergency_contact_phone'),
+    assigned_commission: text('assigned_commission'),
+    status: text('status').notNull().default('pending'),
+    consent: boolean('consent').notNull().default(false),
+    created_at: timestamp('created_at').defaultNow().notNull(),
+    updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (t) => [
+    index('volunteer_registration_edition_idx').on(t.edition_id),
+    index('volunteer_registration_email_idx').on(t.email)
+]);
 
 export const recordSurgeons = pgTable('record_surgeons', {
     medical_record_id: integer('medical_record_id').notNull().references(() => medicalRecords.id),
@@ -120,6 +216,14 @@ export const recordSurgeons = pgTable('record_surgeons', {
 export const editionsRelations = relations(editions, ({ many }) => ({
     medicalRecords: many(medicalRecords),
     surgeons: many(editionSurgeons),
+    volunteerRegistrations: many(volunteerRegistrations),
+}));
+
+export const volunteerRegistrationsRelations = relations(volunteerRegistrations, ({ one }) => ({
+    edition: one(editions, {
+        fields: [volunteerRegistrations.edition_id],
+        references: [editions.id],
+    }),
 }));
 
 export const surgeonsRelations = relations(surgeons, ({ many }) => ({

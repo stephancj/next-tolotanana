@@ -105,9 +105,9 @@ export default function AdvancedSearch({ onFilterChange, isOpen, onClose }: Adva
 
             <div className="space-y-3">
                 {filters.map((filter, index) => (
-                    <div key={filter.id} className="flex flex-col sm:flex-row gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-100 group">
+                    <div key={filter.id} className="group flex flex-col items-stretch gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:flex-row sm:items-center sm:p-2">
                         {/* Logic connection label */}
-                        <div className="w-16 text-center">
+                        <div className="text-left sm:w-16 sm:text-center">
                             {index === 0 ? (
                                 <span className="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">{t('where')}</span>
                             ) : (
@@ -119,7 +119,7 @@ export default function AdvancedSearch({ onFilterChange, isOpen, onClose }: Adva
                         <select
                             value={filter.field}
                             onChange={(e) => updateFilter(filter.id, 'field', e.target.value)}
-                            className="flex-1 min-w-[140px] text-sm bg-white border border-gray-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="min-h-12 w-full min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
                         >
                             {Object.entries(FIELD_LABELS).map(([key, label]) => (
                                 <option key={key} value={key}>{label}</option>
@@ -130,7 +130,7 @@ export default function AdvancedSearch({ onFilterChange, isOpen, onClose }: Adva
                         <select
                             value={filter.operator}
                             onChange={(e) => updateFilter(filter.id, 'operator', e.target.value)}
-                            className="w-[140px] text-sm bg-white border border-gray-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="min-h-12 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:w-[140px] sm:text-sm"
                         >
                             {Object.entries(OPERATOR_LABELS).map(([key, label]) => (
                                 <option key={key} value={key}>{label}</option>
@@ -143,13 +143,13 @@ export default function AdvancedSearch({ onFilterChange, isOpen, onClose }: Adva
                             value={filter.value}
                             onChange={(e) => updateFilter(filter.id, 'value', e.target.value)}
                             placeholder={t('valuePlaceholder')}
-                            className="flex-1 min-w-[150px] text-sm bg-white border border-gray-200 rounded-md px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="min-h-12 w-full min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-base outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
                         />
 
                         {/* DELETE BUTTON */}
                         <button
                             onClick={() => removeFilter(filter.id)}
-                            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100"
+                            className="flex min-h-11 min-w-11 items-center justify-center self-end rounded-lg text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 sm:self-auto sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100"
                             title={t('deleteFilter')}
                         >
                             🗑

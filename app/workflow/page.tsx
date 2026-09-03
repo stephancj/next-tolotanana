@@ -1,24 +1,42 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { MedicalRecord, Edition, Surgeon } from '@/lib/client-db';
+import { MedicalRecord, Surgeon, db } from '@/lib/client-db';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { replaceRecordSurgeons, updateMedicalRecord } from '@/lib/local-records';
 import { useTranslations } from '@/app/providers/I18nProvider';
 import { useEdition } from '@/app/providers/EditionProvider';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useFeedback } from '@/app/providers/FeedbackProvider';
 
 
-import { Phone, ClipboardCheck, LogIn, Pill, LogOut, BedDouble, Home, Search, Calendar, Filter } from 'lucide-react';
+import { Phone, ClipboardCheck, LogIn, Pill, LogOut, BedDouble, Home, Search, Calendar, Filter, Clock3, ExternalLink, ShieldAlert } from 'lucide-react';
+
+const currentTime = () => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
+
+const workflowStage = (record: MedicalRecord) => {
+    if (record.discharge_time) return { key: 'discharged', label: 'Sorti', tone: 'bg-slate-100 text-slate-700' };
+    if (record.block_exit_time) return { key: 'post-op', label: 'Post-op', tone: 'bg-cyan-100 text-cyan-800' };
+    if (record.block_entry_time) return { key: 'bloc', label: 'Au bloc', tone: 'bg-blue-100 text-blue-800' };
+    if (record.pre_op_checked) return { key: 'ready', label: 'Prêt pour le bloc', tone: 'bg-emerald-100 text-emerald-800' };
+    return { key: 'pre-op', label: 'Pré-op', tone: 'bg-amber-100 text-amber-900' };
+};
 
 export default function WorkflowPage() {
     const { currentEdition } = useEdition();
     const router = useRouter();
+    const { notify, confirm } = useFeedback();
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     // URL State
-    const activeTab = (searchParams.get('tab') as 'pre-op' | 'bloc' | 'post-op') || 'pre-op';
+    const tabParam = searchParams.get('tab');
+    const activeTab: 'pre-op' | 'bloc' | 'post-op' = tabParam === 'bloc' || tabParam === 'post-op' ? tabParam : 'pre-op';
     const filterDate = searchParams.get('date') || '';
-    const filterStatus = searchParams.get('status') || 'all';
+    const filterStatus = searchParams.get('status') || 'stage';
 
     // Search Handling
     const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
@@ -38,8 +56,9 @@ export default function WorkflowPage() {
 
     // Param Updater Helper
     const updateParam = useCallback((key: string, value: string) => {
+        setSelectedRecordIds(new Set());
         const params = new URLSearchParams(searchParams.toString());
-        if (value && value !== 'all') {
+        if (value) {
             params.set(key, value);
         } else {
             params.delete(key);
@@ -65,6 +84,7 @@ export default function WorkflowPage() {
     // Bloc Bulk Data
     const [bulkPharmacyStatus, setBulkPharmacyStatus] = useState<string>('');
     const [bulkSurgeons, setBulkSurgeons] = useState<number[]>([]);
+    const [bulkSurgeonMode, setBulkSurgeonMode] = useState<'no-change' | 'replace' | 'clear'>('no-change');
     const [bulkDiagnosisCategory, setBulkDiagnosisCategory] = useState('');
     const [bulkInterventionDetails, setBulkInterventionDetails] = useState('');
     const [bulkPrescriptionDetails, setBulkPrescriptionDetails] = useState('');
@@ -80,69 +100,18 @@ export default function WorkflowPage() {
     const t = useTranslations('workflow');
     const tCommon = useTranslations('common');
 
-    const [neonRecords, setNeonRecords] = useState<MedicalRecord[]>([]);
-    const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
-    const [loadingData, setLoadingData] = useState(false);
-
-    // Fetch Data from Neon
-    useEffect(() => {
-        const loadData = async () => {
-            if (!currentEdition?.public_id) return;
-            setLoadingData(true);
-            try {
-                const [recRes, edRes, surgRes] = await Promise.all([
-                    fetch('/api/records'),
-                    fetch('/api/editions'),
-                    fetch('/api/surgeons?is_active=1')
-                ]);
-
-                if (!recRes.ok || !edRes.ok || !surgRes.ok) throw new Error("Failed to fetch data");
-
-                const allRecords = await recRes.json();
-                const allEditions = await edRes.json();
-                const allSurgeons = await surgRes.json();
-
-                setSurgeons(allSurgeons);
-
-                // Find matching remote edition
-                const remoteEdition = allEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
-
-                if (remoteEdition) {
-                    const filtered = allRecords.filter((r: MedicalRecord) => r.edition_id === remoteEdition.id && !r.deleted);
-                    setNeonRecords(filtered);
-                } else {
-                    setNeonRecords([]);
-                }
-            } catch (err) {
-                console.error("Error loading Neon data:", err);
-            } finally {
-                setLoadingData(false);
-            }
-        };
-
-        loadData();
-    }, [currentEdition?.public_id]);
-
-    // Reload data helper
-    const reloadData = async () => {
-        if (!currentEdition?.public_id) return;
-        try {
-            const [recRes, edRes] = await Promise.all([
-                fetch('/api/records'),
-                fetch('/api/editions')
-            ]);
-            const allRecords = await recRes.json();
-            const allEditions = await edRes.json();
-
-            const remoteEdition = allEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
-            if (remoteEdition) {
-                const filtered = allRecords.filter((r: MedicalRecord) => r.edition_id === remoteEdition.id && !r.deleted);
-                setNeonRecords(filtered);
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    };
+    // Workflow reads and writes Dexie first; the global sync engine handles Neon.
+    const localRecords = useLiveQuery<MedicalRecord[]>(
+        () => currentEdition?.id
+            ? db.medical_records.filter(r => r.edition_id === currentEdition.id && r.deleted !== 1).toArray()
+            : Promise.resolve([] as MedicalRecord[]),
+        [currentEdition?.id]
+    );
+    const neonRecords = useMemo(() => localRecords || [], [localRecords]);
+    const surgeons = useLiveQuery<Surgeon[]>(
+        () => db.surgeons.filter(s => s.is_active === 1 && s.deleted !== 1).toArray(), []
+    ) || [];
+    const loadingData = currentEdition?.id !== undefined && localRecords === undefined;
 
     // Filter records
     const filteredRecords = useMemo(() => {
@@ -159,11 +128,15 @@ export default function WorkflowPage() {
             result = result.filter(r => r.planning_day === filterDate);
         }
 
-        // 3. Filter by Status
+        // 3. Filter by workflow stage or explicit status.
         if (filterStatus !== 'all') {
             result = result.filter(r => {
                 const isPreOpChecked = Boolean(r.pre_op_checked);
-
+                if (filterStatus === 'stage') {
+                    if (activeTab === 'pre-op') return !r.block_entry_time;
+                    if (activeTab === 'bloc') return Boolean(r.block_entry_time) && !r.block_exit_time;
+                    return Boolean(r.block_exit_time) && !r.discharge_time;
+                }
                 if (filterStatus === 'present_pending') {
                     // Present but not in block (pre_op_checked=true, block_entry_time=null)
                     return isPreOpChecked && !r.block_entry_time;
@@ -196,7 +169,9 @@ export default function WorkflowPage() {
         }
 
         return result;
-    }, [neonRecords, searchTerm, filterDate, filterStatus]);
+    }, [neonRecords, searchTerm, filterDate, filterStatus, activeTab]);
+
+    const selectedRecords = useMemo(() => filteredRecords.filter(record => record.id && selectedRecordIds.has(record.id)), [filteredRecords, selectedRecordIds]);
 
     // Get unique dates for filter dropdown
     const availableDates = useMemo(() => {
@@ -229,136 +204,166 @@ export default function WorkflowPage() {
     };
 
     const toggleSelectAll = () => {
-        if (selectedRecordIds.size === filteredRecords.length) {
-            setSelectedRecordIds(new Set());
-        } else {
-            setSelectedRecordIds(new Set(filteredRecords.map(r => r.id!)));
+        if (!filteredRecords.length) return;
+        if (selectedRecords.length === filteredRecords.length) setSelectedRecordIds(new Set());
+        else setSelectedRecordIds(new Set(filteredRecords.flatMap(record => record.id ? [record.id] : [])));
+    };
+
+    const quickActionFor = (record: MedicalRecord): { label: string; patch?: Partial<MedicalRecord> } => {
+        if (record.pre_op_call !== 1) return { label: 'Appel effectué', patch: { pre_op_call: 1, pre_op_call_at: new Date().toISOString() } };
+        if (!record.pre_op_checked) return { label: 'Patient présent', patch: { pre_op_checked: 1, pre_op_checked_at: new Date().toISOString() } };
+        if (!record.block_entry_time) return { label: 'Entrée bloc maintenant', patch: { block_entry_time: currentTime() } };
+        if (!record.block_exit_time) return { label: 'Sortie bloc maintenant', patch: { block_exit_time: currentTime() } };
+        if (!record.post_op_entry_time) {
+            if (!record.post_op_room || !record.post_op_bed) return { label: 'Renseigner le post-op' };
+            return { label: 'Installer en post-op', patch: { post_op_entry_time: currentTime() } };
+        }
+        return { label: 'Préparer la sortie' };
+    };
+
+    const applyQuickAction = async (record: MedicalRecord) => {
+        if (!record.id) return;
+        const action = quickActionFor(record);
+        if (!action.patch) { router.push(`/operation?id=${record.id}`); return; }
+        const previous = Object.fromEntries(Object.keys(action.patch).map(key => [key, record[key as keyof MedicalRecord]])) as Partial<MedicalRecord>;
+        try {
+            await updateMedicalRecord(record.id, action.patch);
+            notify(`${action.label} enregistré sur cette tablette.`, 'success', {
+                label: 'Annuler',
+                run: () => { void updateMedicalRecord(record.id!, previous).then(() => notify('Action annulée.', 'success')); }
+            });
+        } catch (error) {
+            console.error(error);
+            notify('Action non enregistrée. Réessayez.', 'error');
         }
     };
 
     const handleBulkSave = async () => {
-        if (selectedRecordIds.size === 0) return;
-        setLoading(true);
-
-        try {
-            const updates: Record<string, string | number | boolean | null> = {
-                updated_at: new Date().toISOString()
-            };
-
-            if (activeTab === 'pre-op') {
-                if (bulkPreOpCall !== null) {
-                    updates.pre_op_call = bulkPreOpCall ? 1 : 0;
-                    updates.pre_op_call_at = bulkPreOpCall ? new Date().toISOString() : null;
-                }
-                if (bulkPreOpCheck !== null) {
-                    updates.pre_op_checked = bulkPreOpCheck; // boolean for Neon
-                    updates.pre_op_checked_at = bulkPreOpCheck ? new Date().toISOString() : null;
-                }
-                if (bulkBlockEntry) updates.block_entry_time = bulkBlockEntry;
-            } else if (activeTab === 'bloc') {
-                if (bulkPharmacyStatus) updates.pharmacy_status = bulkPharmacyStatus as 'pending' | 'retrieved' | 'none';
-                if (bulkDiagnosisCategory) updates.diagnosis_category = bulkDiagnosisCategory;
-                if (bulkInterventionDetails) updates.intervention_details = bulkInterventionDetails;
-                if (bulkPrescriptionDetails) updates.prescription_details = bulkPrescriptionDetails;
-            } else if (activeTab === 'post-op') {
-                if (bulkBlockExit) updates.block_exit_time = bulkBlockExit;
-                if (bulkPostOpEntry) updates.post_op_entry_time = bulkPostOpEntry;
-                if (bulkPostOpRoom) updates.post_op_room = bulkPostOpRoom;
-                if (bulkPostOpBed) updates.post_op_bed = bulkPostOpBed;
-                if (bulkDischargeTime) updates.discharge_time = bulkDischargeTime;
-                if (bulkDischargeNotes) updates.discharge_notes = bulkDischargeNotes;
+        if (!selectedRecords.length) {
+            setSelectedRecordIds(new Set());
+            notify('Aucun patient visible n’est sélectionné.', 'info');
+            return;
+        }
+        const updates: Partial<MedicalRecord> = {};
+        const changeLabels: string[] = [];
+        if (activeTab === 'pre-op') {
+            if (bulkPreOpCall !== null) {
+                updates.pre_op_call = bulkPreOpCall ? 1 : 0;
+                updates.pre_op_call_at = bulkPreOpCall ? new Date().toISOString() : undefined;
+                changeLabels.push(`Appel pré-op : ${bulkPreOpCall ? 'validé' : 'non validé'}`);
             }
+            if (bulkPreOpCheck !== null) {
+                updates.pre_op_checked = bulkPreOpCheck ? 1 : 0;
+                updates.pre_op_checked_at = bulkPreOpCheck ? new Date().toISOString() : undefined;
+                changeLabels.push(`Présence : ${bulkPreOpCheck ? 'validée' : 'non validée'}`);
+            }
+            if (bulkBlockEntry) { updates.block_entry_time = bulkBlockEntry; changeLabels.push(`Entrée bloc : ${bulkBlockEntry}`); }
+        } else if (activeTab === 'bloc') {
+            if (bulkPharmacyStatus) { updates.pharmacy_status = bulkPharmacyStatus as 'pending' | 'retrieved' | 'none'; changeLabels.push(`Pharmacie : ${bulkPharmacyStatus}`); }
+            if (bulkDiagnosisCategory) { updates.diagnosis_category = bulkDiagnosisCategory; changeLabels.push(`Catégorie : ${bulkDiagnosisCategory}`); }
+            if (bulkInterventionDetails) { updates.intervention_details = bulkInterventionDetails; changeLabels.push('Compte-rendu opératoire modifié'); }
+            if (bulkPrescriptionDetails) { updates.prescription_details = bulkPrescriptionDetails; changeLabels.push('Prescription modifiée'); }
+            if (bulkSurgeonMode === 'replace') changeLabels.push(`Équipe remplacée par ${bulkSurgeons.length} chirurgien(s)`);
+            if (bulkSurgeonMode === 'clear') changeLabels.push('Équipe chirurgicale retirée');
+        } else {
+            if (bulkBlockExit) { updates.block_exit_time = bulkBlockExit; changeLabels.push(`Sortie bloc : ${bulkBlockExit}`); }
+            if (bulkPostOpEntry) { updates.post_op_entry_time = bulkPostOpEntry; changeLabels.push(`Entrée post-op : ${bulkPostOpEntry}`); }
+            if (bulkPostOpRoom) { updates.post_op_room = bulkPostOpRoom; changeLabels.push(`Salle : ${bulkPostOpRoom}`); }
+            if (bulkPostOpBed) { updates.post_op_bed = bulkPostOpBed; changeLabels.push(`Lit : ${bulkPostOpBed}`); }
+            if (bulkDischargeTime) { updates.discharge_time = bulkDischargeTime; changeLabels.push(`Sortie patient : ${bulkDischargeTime}`); }
+            if (bulkDischargeNotes) { updates.discharge_notes = bulkDischargeNotes; changeLabels.push('Notes de sortie modifiées'); }
+        }
+        if (bulkSurgeonMode === 'replace' && bulkSurgeons.length === 0) { notify('Sélectionnez au moins un chirurgien, ou choisissez « Retirer ».', 'error'); return; }
+        if (!changeLabels.length) { notify('Choisissez au moins une modification à appliquer.', 'info'); return; }
 
-            // Apply updates to selected records via SINGLE API CALL
-            const res = await fetch('/api/records', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ids: Array.from(selectedRecordIds),
-                    ...updates
-                })
-            });
+        const warnings: string[] = [];
+        if (bulkBlockEntry && selectedRecords.some(record => !(record.pre_op_call || bulkPreOpCall === true) || !(record.pre_op_checked || bulkPreOpCheck === true))) warnings.push('pré-op incomplet pour certains patients');
+        if ((bulkBlockExit || bulkPostOpEntry) && selectedRecords.some(record => !record.block_entry_time)) warnings.push('entrée au bloc absente pour certains patients');
+        if (bulkPostOpEntry && selectedRecords.some(record => !(record.post_op_room || bulkPostOpRoom) || !(record.post_op_bed || bulkPostOpBed))) warnings.push('salle ou lit post-op non renseigné pour certains patients');
+        if (bulkDischargeTime && selectedRecords.some(record => !(record.block_exit_time || bulkBlockExit))) warnings.push('sortie du bloc absente pour certains patients');
+        if (bulkDischargeTime && selectedRecords.some(record => !(record.discharge_notes || bulkDischargeNotes))) warnings.push('notes de sortie absentes pour certains patients');
+        const accepted = await confirm({
+            title: `Modifier ${selectedRecords.length} patient(s) ?`,
+            message: `${changeLabels.join(' ; ')}.${warnings.length ? ` Attention : ${warnings.join(' ; ')}.` : ''} Les autres champs resteront inchangés.`,
+            confirmLabel: warnings.length ? 'Appliquer malgré l’avertissement' : 'Appliquer'
+        });
+        if (!accepted) return;
 
-            if (!res.ok) throw new Error('Failed to update records');
-
-            // Handle Surgeon Bulk Update specifically
-            if (activeTab === 'bloc' && bulkSurgeons.length > 0) {
-                // Note: Surgeon assignment API might need similar bulk update refactor later if performance is an issue
-                await Promise.all(Array.from(selectedRecordIds).map(async (id) => {
-                    const res = await fetch('/api/record_surgeons', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            medical_record_id: id,
-                            surgeon_ids: bulkSurgeons
-                        })
-                    });
-                    if (!res.ok) throw new Error(`Failed to assign surgeons for record ${id}`);
+        setLoading(true);
+        try {
+            const updateKeys = Object.keys(updates) as (keyof MedicalRecord)[];
+            const previousValues = new Map<number, Partial<MedicalRecord>>();
+            for (const record of selectedRecords) if (record.id) previousValues.set(record.id, Object.fromEntries(updateKeys.map(key => [key, record[key]])) as Partial<MedicalRecord>);
+            const previousSurgeons = new Map<number, number[]>();
+            if (activeTab === 'bloc' && bulkSurgeonMode !== 'no-change') {
+                await Promise.all(selectedRecords.map(async record => {
+                    if (!record.id) return;
+                    const links = await db.record_surgeons.where('medical_record_id').equals(record.id).toArray();
+                    previousSurgeons.set(record.id, links.map(link => link.surgeon_id));
                 }));
             }
+            await Promise.all(selectedRecords.flatMap(record => record.id && updateKeys.length ? [updateMedicalRecord(record.id, updates)] : []));
+            if (activeTab === 'bloc' && bulkSurgeonMode !== 'no-change') {
+                const surgeonIds = bulkSurgeonMode === 'clear' ? [] : bulkSurgeons;
+                await Promise.all(selectedRecords.flatMap(record => record.id ? [replaceRecordSurgeons(record.id, surgeonIds)] : []));
+            }
 
-            alert(t('alerts.success', { count: selectedRecordIds.size }));
+            const changedCount = selectedRecords.length;
+            notify(t('alerts.success', { count: changedCount }), 'success', {
+                label: 'Annuler',
+                run: () => { void (async () => {
+                    await Promise.all([...previousValues].map(([id, values]) => updateMedicalRecord(id, values)));
+                    await Promise.all([...previousSurgeons].map(([id, surgeonIds]) => replaceRecordSurgeons(id, surgeonIds)));
+                    notify('Modification groupée annulée.', 'success');
+                })(); }
+            });
             setSelectedRecordIds(new Set());
-            // Reset bulk fields
-            setBulkPreOpCall(null);
-            setBulkPreOpCheck(null);
-            setBulkBlockEntry('');
-            setBulkPharmacyStatus('');
-            setBulkSurgeons([]);
-            setBulkDiagnosisCategory('');
-            setBulkInterventionDetails('');
-            setBulkPrescriptionDetails('');
-            setBulkBlockExit('');
-            setBulkPostOpEntry('');
-            setBulkPostOpRoom('');
-            setBulkPostOpBed('');
-            setBulkDischargeTime('');
-            setBulkDischargeNotes('');
-
-            // Reload data
-            await reloadData();
-
+            setBulkPreOpCall(null); setBulkPreOpCheck(null); setBulkBlockEntry('');
+            setBulkPharmacyStatus(''); setBulkSurgeons([]); setBulkSurgeonMode('no-change');
+            setBulkDiagnosisCategory(''); setBulkInterventionDetails(''); setBulkPrescriptionDetails('');
+            setBulkBlockExit(''); setBulkPostOpEntry(''); setBulkPostOpRoom(''); setBulkPostOpBed('');
+            setBulkDischargeTime(''); setBulkDischargeNotes('');
         } catch (err) {
             console.error(err);
-            alert(t('alerts.error'));
+            notify(t('alerts.error'), 'error');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-32 font-[family-name:var(--font-geist-sans)]">
+        <div className="min-h-screen bg-slate-50 pb-24">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 shadow-sm">
+            <header className="sticky top-16 z-40 border-b border-slate-200 bg-white">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col gap-4 py-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">Workflow</h2>
                                 <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{t('title')}</h1>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="flex bg-slate-100 p-1 rounded-lg">
+                            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                <div className="mobile-scroll flex min-w-0 flex-1 overflow-x-auto rounded-lg bg-slate-100 p-1 sm:flex-none">
                                     <button
                                         onClick={() => setActiveTab('pre-op')}
-                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className={`min-h-11 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-bold transition-all sm:px-4 ${activeTab === 'pre-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                     >
                                         {t('tabs.preOp')}
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('bloc')}
-                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className={`min-h-11 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-bold transition-all sm:px-4 ${activeTab === 'bloc' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                     >
                                         {t('tabs.bloc')}
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('post-op')}
-                                        className={`px-4 py-1.5 text-sm font-bold rounded-md transition-all ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className={`min-h-11 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-bold transition-all sm:px-4 ${activeTab === 'post-op' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                                     >
                                         {t('tabs.postOp')}
                                     </button>
                                 </div>
-                                <button onClick={() => router.push('/dashboard')} className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm">
+                                <button onClick={() => router.push('/dashboard')} aria-label={tCommon('back')} className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 sm:px-4">
                                     <span>←</span> {tCommon('back')}
                                 </button>
                             </div>
@@ -366,23 +371,23 @@ export default function WorkflowPage() {
 
                         {/* Filters & Search */}
                         <div className="flex flex-wrap gap-3">
-                            <div className="relative flex-1 min-w-[200px]">
+                            <div className="relative w-full min-w-0 sm:flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                                 <input
                                     type="text"
                                     placeholder={t('searchPlaceholder')}
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setSelectedRecordIds(new Set()); }}
                                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all shadow-sm"
                                 />
                             </div>
 
-                            <div className="relative">
+                            <div className="relative w-full sm:w-auto">
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                                 <select
                                     value={filterDate}
                                     onChange={(e) => setFilterDate(e.target.value)}
-                                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700 cursor-pointer shadow-sm appearance-none"
+                                    className="min-h-11 w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-sm font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:w-auto"
                                 >
                                     <option value="">{t('filters.allDates')}</option>
                                     {availableDates.map(date => (
@@ -391,14 +396,15 @@ export default function WorkflowPage() {
                                 </select>
                             </div>
 
-                            <div className="relative">
+                            <div className="relative w-full sm:w-auto">
                                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                                 <select
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
-                                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-slate-700 cursor-pointer shadow-sm appearance-none"
+                                    className="min-h-11 w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-sm font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-indigo-500 sm:w-auto"
                                 >
-                                    <option value="all">{t('filters.allStatuses')}</option>
+                                    <option value="stage">Étape actuelle</option>
+                                    <option value="all">Tous les patients</option>
                                     <option value="present_pending">{t('filters.presentPending')}</option>
                                     <option value="in_block">{t('filters.inBlock')}</option>
                                     <option value="post_op">{t('filters.postOp')}</option>
@@ -422,7 +428,7 @@ export default function WorkflowPage() {
                             onClick={toggleSelectAll}
                             className="text-sm font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded"
                         >
-                            {selectedRecordIds.size === filteredRecords.length ? t('deselectAll') : t('selectAll')}
+                            {filteredRecords.length > 0 && selectedRecords.length === filteredRecords.length ? t('deselectAll') : t('selectAll')}
                         </button>
                     </div>
 
@@ -431,9 +437,9 @@ export default function WorkflowPage() {
                             <div
                                 key={record.id}
                                 onClick={() => toggleSelection(record.id!)}
-                                className={`bg-white p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between group gap-4 ${selectedRecordIds.has(record.id!)
-                                    ? 'border-indigo-500 shadow-md bg-indigo-50/10'
-                                    : 'border-slate-100 hover:border-indigo-200 hover:shadow-sm'
+                                className={`flex cursor-pointer flex-col justify-between gap-4 rounded-xl border bg-white p-4 transition sm:flex-row sm:items-center ${selectedRecordIds.has(record.id!)
+                                    ? 'border-indigo-500 bg-indigo-50/40'
+                                    : 'border-slate-200 hover:border-indigo-300'
                                     }`}
                             >
                                 <div className="flex items-start gap-4">
@@ -447,9 +453,10 @@ export default function WorkflowPage() {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="font-black text-slate-800 text-lg">{record.last_name} {record.first_name}</span>
                                             <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold">{record.dossier_number}</span>
+                                            <span className={`rounded-full px-2 py-1 text-xs font-bold ${workflowStage(record).tone}`}>{workflowStage(record).label}</span>
                                         </div>
                                         <div className="text-sm text-slate-500 flex flex-wrap items-center gap-2 mt-1">
-                                            <span>{record.age} ans</span>
+                                            <span>{record.age || 'Âge non renseigné'}</span>
                                             {record.planning_day && (
                                                 <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">
                                                     📅 {record.planning_day}
@@ -521,53 +528,35 @@ export default function WorkflowPage() {
                                             )}
                                         </div>
                                     )}
+                                    <div className="mt-2 flex w-full flex-wrap justify-start gap-2 sm:justify-end"><button type="button" onClick={event => { event.stopPropagation(); void applyQuickAction(record); }} className="flex min-h-11 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-xs font-bold text-white"><Clock3 size={15} />{quickActionFor(record).label}</button><button type="button" onClick={event => { event.stopPropagation(); router.push(`/operation?id=${record.id}`); }} className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700"><ExternalLink size={15} />Ouvrir</button></div>
                                 </div>
                             </div>
                         ))}
+                        {!loadingData && filteredRecords.length === 0 && <div className="border-y border-slate-200 bg-white p-8 text-center"><p className="font-bold text-slate-800">Aucun patient à cette étape.</p><button onClick={() => setFilterStatus('all')} className="mt-3 min-h-11 font-bold text-indigo-700">Afficher tous les patients</button></div>}
                     </div>
                 </div>
 
                 {/* BULK ACTION PANEL */}
                 <div className="lg:w-96 flex-shrink-0 w-full">
-                    <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 p-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-140px)] flex flex-col">
+                    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-140px)]">
                         <div className="flex-shrink-0 mb-4">
                             <h3 className="text-lg font-black text-slate-800 mb-1 flex items-center gap-2">
                                 <span>⚡</span> {t('bulk.title')}
                             </h3>
-                            <p className="text-sm text-slate-500">
-                                {t('bulk.subtitle', { count: selectedRecordIds.size })}
-                            </p>
+                            <p className="text-sm text-slate-500">{t('bulk.subtitle', { count: selectedRecords.length })}</p>
+                            <p className="mt-2 flex items-start gap-2 text-xs text-slate-500"><ShieldAlert size={15} className="mt-0.5 shrink-0 text-amber-600" />Un aperçu et les incohérences éventuelles seront affichés avant application.</p>
                         </div>
 
                         <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                             {activeTab === 'pre-op' && (
                                 <>
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         <p className="font-bold text-slate-700 text-sm uppercase">{t('bulk.sections.quickCheck')}</p>
-                                        <label className="flex items-center gap-3 p-3 rounded-lg border border-orange-100 bg-orange-50/50 cursor-pointer hover:bg-orange-50">
-                                            <input type="checkbox" className="w-5 h-5 text-orange-600 rounded"
-                                                checked={bulkPreOpCall === true}
-                                                // Triple state logic: null -> true -> false -> null not strictly implementing here, just toggle
-                                                onChange={(e) => setBulkPreOpCall(e.target.checked)}
-                                            />
-                                            <span className="font-bold text-orange-900">{t('bulk.labels.preOpCallOk')}</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 p-3 rounded-lg border border-emerald-100 bg-emerald-50/50 cursor-pointer hover:bg-emerald-50">
-                                            <input type="checkbox" className="w-5 h-5 text-emerald-600 rounded"
-                                                checked={bulkPreOpCheck === true}
-                                                onChange={(e) => setBulkPreOpCheck(e.target.checked)}
-                                            />
-                                            <span className="font-bold text-emerald-900">{t('bulk.labels.presenceCheckOk')}</span>
-                                        </label>
+                                        {([{ label: 'Appel pré-op', value: bulkPreOpCall, set: setBulkPreOpCall }, { label: 'Présence', value: bulkPreOpCheck, set: setBulkPreOpCheck }] as const).map(control => <fieldset key={control.label}><legend className="mb-2 text-sm font-bold text-slate-700">{control.label}</legend><div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">{([{ label: 'Ne pas modifier', value: null }, { label: 'Validé', value: true }, { label: 'Non validé', value: false }] as const).map(option => <button key={option.label} type="button" onClick={() => control.set(option.value)} className={`min-h-11 rounded-md px-2 text-xs font-bold ${control.value === option.value ? 'bg-white text-indigo-800 shadow-sm' : 'text-slate-600'}`}>{option.label}</button>)}</div></fieldset>)}
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.blocEntry')}</p>
-                                        <input
-                                            type="time"
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                                            value={bulkBlockEntry}
-                                            onChange={(e) => setBulkBlockEntry(e.target.value)}
-                                        />
+                                        <div className="flex gap-2"><input type="time" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-blue-500" value={bulkBlockEntry} onChange={(e) => setBulkBlockEntry(e.target.value)} /><button type="button" onClick={() => setBulkBlockEntry(currentTime())} className="min-h-11 rounded-lg bg-blue-700 px-3 text-xs font-bold text-white">Maintenant</button></div>
                                     </div>
                                 </>
                             )}
@@ -619,7 +608,8 @@ export default function WorkflowPage() {
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.assignSurgeons')}</p>
-                                        <div className="max-h-60 overflow-y-auto space-y-2 border border-slate-100 rounded-xl p-2 bg-slate-50">
+                                        <div className="mb-2 grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1">{([{ value: 'no-change', label: 'Conserver' }, { value: 'replace', label: 'Remplacer' }, { value: 'clear', label: 'Retirer' }] as const).map(option => <button key={option.value} type="button" onClick={() => setBulkSurgeonMode(option.value)} className={`min-h-11 rounded-md px-2 text-xs font-bold ${bulkSurgeonMode === option.value ? 'bg-white text-indigo-800 shadow-sm' : 'text-slate-600'}`}>{option.label}</button>)}</div>
+                                        <div className={`max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-2 ${bulkSurgeonMode !== 'replace' ? 'pointer-events-none opacity-45' : ''}`}>
                                             {surgeons.map(surgeon => (
                                                 <label key={surgeon.id} className="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-100 cursor-pointer hover:border-indigo-300">
                                                     <input
@@ -644,30 +634,15 @@ export default function WorkflowPage() {
                                 <>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.blocExit')}</p>
-                                        <input
-                                            type="time"
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-500 font-bold"
-                                            value={bulkBlockExit}
-                                            onChange={(e) => setBulkBlockExit(e.target.value)}
-                                        />
+                                        <div className="flex gap-2"><input type="time" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-slate-500" value={bulkBlockExit} onChange={(e) => setBulkBlockExit(e.target.value)} /><button type="button" onClick={() => setBulkBlockExit(currentTime())} className="min-h-11 rounded-lg bg-slate-800 px-3 text-xs font-bold text-white">Maintenant</button></div>
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.postOpEntry')}</p>
-                                        <input
-                                            type="time"
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500 font-bold"
-                                            value={bulkPostOpEntry}
-                                            onChange={(e) => setBulkPostOpEntry(e.target.value)}
-                                        />
+                                        <div className="flex gap-2"><input type="time" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-cyan-500" value={bulkPostOpEntry} onChange={(e) => setBulkPostOpEntry(e.target.value)} /><button type="button" onClick={() => setBulkPostOpEntry(currentTime())} className="min-h-11 rounded-lg bg-cyan-700 px-3 text-xs font-bold text-white">Maintenant</button></div>
                                     </div>
                                     <div>
                                         <p className="font-bold text-slate-700 text-sm uppercase mb-2">{t('bulk.sections.discharge')}</p>
-                                        <input
-                                            type="time"
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
-                                            value={bulkDischargeTime}
-                                            onChange={(e) => setBulkDischargeTime(e.target.value)}
-                                        />
+                                        <div className="flex gap-2"><input type="time" className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 p-3 font-bold outline-none focus:ring-2 focus:ring-indigo-500" value={bulkDischargeTime} onChange={(e) => setBulkDischargeTime(e.target.value)} /><button type="button" onClick={() => setBulkDischargeTime(currentTime())} className="min-h-11 rounded-lg bg-indigo-700 px-3 text-xs font-bold text-white">Maintenant</button></div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <div>
@@ -706,10 +681,10 @@ export default function WorkflowPage() {
                         <div className="flex-shrink-0 pt-4 mt-2 border-t border-slate-100">
                             <button
                                 onClick={handleBulkSave}
-                                disabled={selectedRecordIds.size === 0 || loading}
+                                disabled={selectedRecords.length === 0 || loading}
                                 className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                             >
-                                {loading ? <span className="animate-spin">⏳</span> : <span>💾 {t('bulk.submit', { count: selectedRecordIds.size })}</span>}
+                                {loading ? <span className="animate-spin">⏳</span> : <span>💾 {t('bulk.submit', { count: selectedRecords.length })}</span>}
                             </button>
                         </div>
                     </div>

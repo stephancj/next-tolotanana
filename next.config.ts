@@ -9,6 +9,16 @@ const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   register: true,
+  extendDefaultRuntimeCaching: true,
+  workboxOptions: {
+    importScripts: ["/sync-events.js"],
+    runtimeCaching: [{
+      // Sync and medical APIs must never be served from a stale service-worker cache.
+      urlPattern: /\/api\/(sync|records|editions|surgeons|record_surgeons|monitoring|volunteers|public)(\/.*)?$/,
+      handler: "NetworkOnly",
+      options: { cacheName: "medical-api-network-only" },
+    }],
+  },
 });
 
 const nextConfig: NextConfig = {

@@ -15,8 +15,7 @@ export default function EditionIndicator({ edition, onChangeEdition }: EditionIn
     const t = useTranslations('editions.indicator');
 
     useEffect(() => {
-        const days = getDaysUntilExpiration();
-        setDaysRemaining(days);
+        queueMicrotask(() => setDaysRemaining(getDaysUntilExpiration()));
     }, [edition]);
 
     if (!edition) return null;

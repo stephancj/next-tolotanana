@@ -7,13 +7,13 @@ import { desc, eq } from 'drizzle-orm';
 // Force dynamic rendering (server-side only)
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
-        // Récupérer uniquement les éditions actives et non supprimées
-        const records = await db.select()
-            .from(editions)
-            .where(eq(editions.deleted, false))
-            .orderBy(desc(editions.year));
+        const includeDeleted = new URL(request.url).searchParams.get('include_deleted') === '1';
+        const base = db.select().from(editions).orderBy(desc(editions.year));
+        const records = includeDeleted
+            ? await base
+            : await db.select().from(editions).where(eq(editions.deleted, false)).orderBy(desc(editions.year));
 
         return NextResponse.json(records);
     } catch (error) {
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         }
 
         const processed: string[] = [];
-        const errors: any[] = [];
+        const errors: Array<{ id?: string; error: string; edition?: unknown }> = [];
 
         for (const edition of incomingEditions) {
             try {
@@ -41,6 +41,9 @@ export async function POST(req: Request) {
                     continue;
                 }
 
+                const registrationOpen = typeof edition.registration_open === 'boolean'
+                    ? edition.registration_open
+                    : undefined;
                 const cleanEdition = {
                     public_id: edition.public_id,
                     name: edition.name,
@@ -56,10 +59,13 @@ export async function POST(req: Request) {
                 };
 
                 await db.insert(editions)
-                    .values(cleanEdition)
+                    .values({ ...cleanEdition, registration_open: registrationOpen ?? false })
                     .onConflictDoUpdate({
                         target: editions.public_id,
-                        set: cleanEdition
+                        set: {
+                            ...cleanEdition,
+                            ...(registrationOpen === undefined ? {} : { registration_open: registrationOpen }),
+                        }
                     });
 
                 processed.push(edition.public_id);

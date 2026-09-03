@@ -1,0 +1,2 @@
+ALTER TABLE "volunteer_registrations" ADD COLUMN "organization_type" text DEFAULT 'rotaract' NOT NULL;--> statement-breakpoint
+ALTER TABLE "volunteer_registrations" ADD COLUMN "club_status" text DEFAULT 'membre' NOT NULL;

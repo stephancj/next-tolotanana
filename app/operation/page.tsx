@@ -7,6 +7,10 @@ import { useTranslations, useLocale } from '@/app/providers/I18nProvider';
 import { Locale } from '@/lib/i18n-config';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
+import { replaceRecordSurgeons, updateMedicalRecord } from '@/lib/local-records';
+import { useFeedback } from '@/app/providers/FeedbackProvider';
+
+const normalizeMedicalValue = (value: unknown) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
 
 const Icons = {
     Activity: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
@@ -15,6 +19,7 @@ const Icons = {
 
 function OperationFormContent() {
     const router = useRouter();
+    const { notify } = useFeedback();
     const searchParams = useSearchParams();
     const id = searchParams.get('id');
 
@@ -33,6 +38,28 @@ function OperationFormContent() {
 
     // Fetch active surgeons from local DB
     const availableSurgeons = useLiveQuery(() => db.surgeons.where('is_active').equals(1).toArray()) || [];
+    const historicalRecords = useLiveQuery<MedicalRecord[]>(() => db.medical_records.filter(item => item.deleted !== 1).toArray(), []) || [];
+    const categorySuggestions = Array.from(new Set(historicalRecords.map(item => item.diagnosis_category?.trim()).filter((value): value is string => Boolean(value))));
+    const categoryPrediction = (() => {
+        const diagnosis = normalizeMedicalValue(record?.clinical_diagnosis);
+        if (!diagnosis) return null;
+        const counts = new Map<string, { value: string; count: number }>();
+        let support = 0;
+        for (const item of historicalRecords) {
+            const category = String(item.diagnosis_category || '').trim();
+            if (!category || normalizeMedicalValue(item.clinical_diagnosis) !== diagnosis || item.id === record?.id) continue;
+            support += 1;
+            const key = normalizeMedicalValue(category);
+            const current = counts.get(key) || { value: category, count: 0 };
+            current.count += 1;
+            counts.set(key, current);
+        }
+        const winner = [...counts.values()].sort((a, b) => b.count - a.count)[0];
+        if (!winner || support < 2) return null;
+        const confidence = winner.count / support;
+        return { value: winner.value, support, confidence, canAutoSelect: confidence >= 0.8 };
+    })();
+    const effectiveDiagnosisCategory = formData.diagnosis_category || (categoryPrediction?.canAutoSelect ? categoryPrediction.value : '');
 
     useEffect(() => {
         if (record) {
@@ -83,35 +110,28 @@ function OperationFormContent() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const setCurrentTime = async (field: 'block_entry_time' | 'block_exit_time' | 'post_op_entry_time' | 'discharge_time') => {
+        if (!record?.id) return;
+        const now = new Date();
+        const value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        setFormData(previous => ({ ...previous, [field]: value }));
+        await updateMedicalRecord(record.id, { [field]: value });
+        notify(`Heure enregistrée sur cette tablette : ${value}`, 'success');
+    };
+
     const handleSubmit = async () => {
         if (!record?.id) return;
 
         setLoading(true);
         try {
-            await db.medical_records.update(record.id, {
-                ...formData,
-                sync_status: 'pending_update',
-                updated_at: new Date().toISOString()
-            });
+            await updateMedicalRecord(record.id, { ...formData, diagnosis_category: effectiveDiagnosisCategory });
+            await replaceRecordSurgeons(record.id, assignedSurgeonIds);
 
-            const existingLinks = await db.record_surgeons.where('medical_record_id').equals(record.id).toArray();
-            const existingIds = existingLinks.map(l => l.id!);
-            await db.record_surgeons.bulkDelete(existingIds);
-
-            const newLinks = assignedSurgeonIds.map(sid => ({
-                medical_record_id: record.id!,
-                surgeon_id: sid,
-                sync_status: 'pending_update' as const
-            }));
-            if (newLinks.length > 0) {
-                await db.record_surgeons.bulkAdd(newLinks);
-            }
-
-            alert(t('messages.saveSuccess'));
+            notify('Étape enregistrée sur cette tablette.', 'success');
             router.push('/planning');
         } catch (err) {
             console.error('Error saving operation data:', err);
-            alert(t('messages.saveError'));
+            notify(t('messages.saveError'), 'error');
         } finally {
             setLoading(false);
         }
@@ -126,11 +146,11 @@ function OperationFormContent() {
     if (!record) return <LoadingSpinner message={tCommon('loading')} />;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 pb-32">
+        <div className="clinical-operation min-h-screen bg-slate-50 pb-28">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 shadow-sm">
-                <div className="max-w-[1400px] mx-auto px-6 py-4">
-                    <div className="flex items-center justify-between">
+            <header className="sticky top-16 z-40 border-b border-slate-200 bg-white">
+                <div className="mx-auto max-w-[1400px] px-4 py-3 sm:px-6 sm:py-4">
+                    <div className="flex items-start justify-between gap-2">
                         <div>
                             <h2 className="text-xs font-bold text-indigo-400 tracking-[0.2em] uppercase mb-1">{t('header.title')}</h2>
                             <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
@@ -142,7 +162,7 @@ function OperationFormContent() {
                         </div>
                         <button
                             onClick={() => router.push('/planning')}
-                            className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm"
+                            className="flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 sm:px-4"
                         >
                             <span>←</span> {tCommon('back')}
                         </button>
@@ -150,11 +170,11 @@ function OperationFormContent() {
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="max-w-[1400px] mx-auto px-6 mt-2">
+                <div className="mx-auto mt-2 max-w-[1400px] px-4 sm:px-6">
                     <div className="flex gap-2 overflow-x-auto pb-0 md:justify-center">
                         <button
                             onClick={() => setActiveTab('pre-op')}
-                            className={`px-6 py-3 font-bold text-sm rounded-t-xl transition-all relative whitespace-nowrap ${activeTab === 'pre-op'
+                            className={`relative min-h-11 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-bold transition-all sm:px-6 ${activeTab === 'pre-op'
                                 ? 'bg-white text-indigo-600 border-x border-t border-blue-100 shadow-sm z-10'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-b border-blue-100'
                                 }`}
@@ -164,7 +184,7 @@ function OperationFormContent() {
                         </button>
                         <button
                             onClick={() => setActiveTab('bloc')}
-                            className={`px-6 py-3 font-bold text-sm rounded-t-xl transition-all relative whitespace-nowrap ${activeTab === 'bloc'
+                            className={`relative min-h-11 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-bold transition-all sm:px-6 ${activeTab === 'bloc'
                                 ? 'bg-white text-indigo-600 border-x border-t border-blue-100 shadow-sm z-10'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-b border-blue-100'
                                 }`}
@@ -174,7 +194,7 @@ function OperationFormContent() {
                         </button>
                         <button
                             onClick={() => setActiveTab('post-op')}
-                            className={`px-6 py-3 font-bold text-sm rounded-t-xl transition-all relative whitespace-nowrap ${activeTab === 'post-op'
+                            className={`relative min-h-11 whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-bold transition-all sm:px-6 ${activeTab === 'post-op'
                                 ? 'bg-white text-indigo-600 border-x border-t border-blue-100 shadow-sm z-10'
                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-b border-blue-100'
                                 }`}
@@ -186,7 +206,7 @@ function OperationFormContent() {
                 </div>
             </header>
 
-            <main className="max-w-[1400px] mx-auto p-4 md:p-8 lg:p-10 animate-fadeIn">
+            <main className="mx-auto max-w-[1200px] p-4 md:p-7">
 
                 {/* PRE-OP TAB */}
                 {activeTab === 'pre-op' && (
@@ -199,18 +219,16 @@ function OperationFormContent() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Pre-Op Call */}
-                                <div className="bg-orange-50/50 rounded-xl p-6 border border-orange-100 hover:shadow-md transition-shadow">
+                                <div className="rounded-xl border border-orange-100 bg-orange-50/50 p-4 transition-shadow hover:shadow-md sm:p-6">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={formData.pre_op_call === 1}
                                             onChange={(e) => {
                                                 const isChecked = e.target.checked;
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    pre_op_call: isChecked ? 1 : 0,
-                                                    pre_op_call_at: isChecked ? new Date().toISOString() : ''
-                                                }));
+                                                const patch = { pre_op_call: isChecked ? 1 : 0, pre_op_call_at: isChecked ? new Date().toISOString() : '' };
+                                                setFormData(prev => ({ ...prev, ...patch }));
+                                                if (record.id) void updateMedicalRecord(record.id, patch).then(() => notify('Appel pré-op enregistré.', 'success'));
                                             }}
                                             className="w-6 h-6 rounded border-2 border-orange-400 text-orange-600 focus:ring-2 focus:ring-orange-500 mt-1 shrink-0"
                                         />
@@ -227,18 +245,16 @@ function OperationFormContent() {
                                 </div>
 
                                 {/* Pre-Op Check */}
-                                <div className="bg-emerald-50/50 rounded-xl p-6 border border-emerald-100 hover:shadow-md transition-shadow">
+                                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 transition-shadow hover:shadow-md sm:p-6">
                                     <label className="flex items-start gap-4 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={formData.pre_op_checked === 1}
                                             onChange={(e) => {
                                                 const isChecked = e.target.checked;
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    pre_op_checked: isChecked ? 1 : 0,
-                                                    pre_op_checked_at: isChecked ? new Date().toISOString() : ''
-                                                }));
+                                                const patch = { pre_op_checked: isChecked ? 1 : 0, pre_op_checked_at: isChecked ? new Date().toISOString() : '' };
+                                                setFormData(prev => ({ ...prev, ...patch }));
+                                                if (record.id) void updateMedicalRecord(record.id, patch).then(() => notify('Présence pré-op enregistrée.', 'success'));
                                             }}
                                             className="w-6 h-6 rounded border-2 border-emerald-400 text-emerald-600 focus:ring-2 focus:ring-emerald-500 mt-1 shrink-0"
                                         />
@@ -255,7 +271,7 @@ function OperationFormContent() {
                                 </div>
 
                                 {/* Block Entry Time - Full Width */}
-                                <div className="bg-blue-50/50 rounded-xl p-6 border border-blue-100 md:col-span-2 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div className="flex flex-col gap-4 rounded-xl border border-blue-100 bg-blue-50/50 p-4 sm:p-6 md:col-span-2 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-4">
                                         <span className="text-3xl bg-white p-2 rounded-lg shadow-sm">🚪</span>
                                         <div>
@@ -274,6 +290,7 @@ function OperationFormContent() {
                                             onChange={handleChange}
                                             className="w-full md:w-48 p-4 bg-white border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-xl font-bold text-slate-800 shadow-sm"
                                         />
+                                        <button type="button" onClick={() => setCurrentTime('block_entry_time')} className="mt-2 min-h-11 w-full rounded-lg bg-blue-700 px-4 text-sm font-bold text-white md:w-48">Maintenant</button>
                                     </div>
                                 </div>
                             </div>
@@ -298,11 +315,14 @@ function OperationFormContent() {
                                         <input
                                             type="text"
                                             name="diagnosis_category"
-                                            value={formData.diagnosis_category || ''}
+                                            value={effectiveDiagnosisCategory}
                                             onChange={handleChange}
-                                            placeholder="Ex: Orthopédie..."
+                                            placeholder="Ex: Hernie, Lipome…"
+                                            list="diagnosis-category-suggestions"
                                             className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none font-medium transition-all"
                                         />
+                                        <datalist id="diagnosis-category-suggestions">{categorySuggestions.map(value => <option key={value} value={value} />)}</datalist>
+                                        {categoryPrediction && <p className="mt-2 text-xs text-slate-500">{categoryPrediction.canAutoSelect && !formData.diagnosis_category ? 'Catégorie préselectionnée' : 'Suggestion'} depuis {categoryPrediction.support} dossier(s) au diagnostic identique, confiance {Math.round(categoryPrediction.confidence * 100)} %. À confirmer.</p>}
                                     </div>
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">
@@ -412,6 +432,7 @@ function OperationFormContent() {
                                             onChange={handleChange}
                                             className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-slate-500 outline-none transition-all text-xl font-bold text-slate-800 text-center"
                                         />
+                                        <button type="button" onClick={() => setCurrentTime('block_exit_time')} className="mt-2 min-h-11 w-full rounded-lg bg-slate-800 px-4 text-sm font-bold text-white">Maintenant</button>
                                     </div>
                                 </div>
 
@@ -457,6 +478,7 @@ function OperationFormContent() {
                                                 onChange={handleChange}
                                                 className="w-full p-2 bg-white border border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-500 outline-none font-bold text-center text-lg"
                                             />
+                                            <button type="button" onClick={() => setCurrentTime('post_op_entry_time')} className="mt-2 min-h-11 w-full rounded-lg bg-cyan-700 px-4 text-sm font-bold text-white">Maintenant</button>
                                         </div>
                                     </div>
                                 </div>
@@ -481,6 +503,7 @@ function OperationFormContent() {
                                             onChange={handleChange}
                                             className="w-full p-4 bg-white border-2 border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xl font-bold text-slate-800 text-center shadow-sm"
                                         />
+                                        <button type="button" onClick={() => setCurrentTime('discharge_time')} className="mt-2 min-h-11 w-full rounded-lg bg-indigo-700 px-4 text-sm font-bold text-white">Maintenant</button>
                                     </div>
 
                                     <div className="md:w-2/3 flex flex-col">
@@ -502,12 +525,12 @@ function OperationFormContent() {
                 )}
             </main>
 
-            {/* Floating Save Button */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+            {/* Persistent save action */}
+            <div className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-3 pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
                 <button
                     onClick={handleSubmit}
                     disabled={loading}
-                    className="px-10 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl shadow-2xl font-bold transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                    className="mx-auto flex min-h-12 w-full max-w-md items-center justify-center gap-3 rounded-lg bg-indigo-600 px-6 font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                     {loading ? (
                         <>

@@ -4,6 +4,8 @@ import "./globals.css";
 import { I18nProvider } from "./providers/I18nProvider";
 import { EditionProvider } from "./providers/EditionProvider";
 import Navbar from "./components/Navbar";
+import { SyncProvider } from "./hooks/useSync";
+import { FeedbackProvider } from "./providers/FeedbackProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,7 +27,7 @@ export const viewport = {
   themeColor: "#4f46e5",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -34,15 +36,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <I18nProvider>
-          <EditionProvider>
-            <Navbar />
-            {children}
-          </EditionProvider>
+          <FeedbackProvider>
+            <SyncProvider>
+              <EditionProvider>
+                <Navbar />
+                {children}
+              </EditionProvider>
+            </SyncProvider>
+          </FeedbackProvider>
         </I18nProvider>
       </body>
     </html>

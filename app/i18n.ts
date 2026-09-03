@@ -4,9 +4,9 @@ import { locales } from '@/lib/i18n-config';
 
 export default getRequestConfig(async () => {
   // Default locale for server-side rendering
-  const locale = 'fr';
+  const locale: (typeof locales)[number] = 'fr';
 
-  if (!locales.includes(locale as any)) notFound();
+  if (!locales.includes(locale)) notFound();
 
   return {
     locale,

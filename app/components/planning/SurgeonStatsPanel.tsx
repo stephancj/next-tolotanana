@@ -65,25 +65,26 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
     return (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
             <div
-                className="bg-white rounded-t-2xl md:rounded-2xl shadow-2xl w-full max-w-4xl mx-0 md:mx-4 max-h-[80vh] overflow-hidden flex flex-col"
+                role="dialog" aria-modal="true" aria-labelledby="surgeon-stats-title"
+                className="mobile-dialog flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl md:mx-4 md:max-h-[80dvh] md:rounded-xl"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <div>
-                        <h3 className="text-base font-bold text-slate-800">Statistiques chirurgiens</h3>
+                        <h3 id="surgeon-stats-title" className="text-base font-bold text-slate-800">Statistiques chirurgiens</h3>
                         <p className="text-xs text-slate-500 mt-0.5">
                             Nombre de patients par chirurgien et par jour
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <button onClick={onClose} aria-label="Fermer" className="grid min-h-11 min-w-11 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                         <X size={18} />
                     </button>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-auto flex-1 p-4">
-                    <table className="w-full text-sm">
+                <div className="mobile-scroll flex-1 overflow-auto p-3 sm:p-4">
+                    <table className="min-w-[680px] w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-200">
                                 <th className="text-left py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">

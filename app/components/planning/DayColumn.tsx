@@ -38,7 +38,7 @@ export default function DayColumn({
         <div
             ref={setNodeRef}
             className={`rounded-2xl border flex flex-col transition-all ${
-                isPool ? 'min-w-[280px] w-[280px]' : 'min-w-[230px] w-[230px]'
+                isPool ? 'min-w-[calc(100vw-2rem)] w-[calc(100vw-2rem)] sm:min-w-[280px] sm:w-[280px]' : 'min-w-[calc(100vw-2rem)] w-[calc(100vw-2rem)] sm:min-w-[230px] sm:w-[230px]'
             } ${
                 isOver
                     ? 'ring-2 ring-indigo-300 bg-indigo-50/40 border-indigo-200'

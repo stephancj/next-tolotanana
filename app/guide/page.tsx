@@ -18,6 +18,7 @@ import {
     BookOpen,
     Lightbulb,
     ChevronDown,
+    Search,
 } from 'lucide-react';
 
 const sectionKeys = [
@@ -56,18 +57,6 @@ const sectionColors: Record<SectionKey, string> = {
     workflow: 'bg-orange-100 text-orange-600',
     sync: 'bg-cyan-100 text-cyan-600',
     language: 'bg-purple-100 text-purple-600',
-};
-
-const sectionBorderColors: Record<SectionKey, string> = {
-    gettingStarted: 'border-violet-200',
-    dashboard: 'border-indigo-200',
-    newPatient: 'border-emerald-200',
-    patientList: 'border-amber-200',
-    team: 'border-rose-200',
-    planning: 'border-blue-200',
-    workflow: 'border-orange-200',
-    sync: 'border-cyan-200',
-    language: 'border-purple-200',
 };
 
 // Sections that have "steps" (ordered instructions)
@@ -113,6 +102,8 @@ export default function GuidePage() {
     const router = useRouter();
     const [activeSection, setActiveSection] = useState<SectionKey>('gettingStarted');
     const [mobileTocOpen, setMobileTocOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const visibleSectionKeys = sectionKeys.filter(key => `${t(`sections.${key}.title`)} ${t(`sections.${key}.description`)}`.toLowerCase().includes(query.toLowerCase()));
 
     const scrollToSection = (key: SectionKey) => {
         setActiveSection(key);
@@ -126,7 +117,7 @@ export default function GuidePage() {
     return (
         <div className="min-h-screen bg-slate-50/80">
             {/* Header */}
-            <header className="bg-white/80 backdrop-blur-xl sticky top-16 z-40 border-b border-indigo-50 px-6 py-4 shadow-sm">
+            <header className="sticky top-16 z-40 border-b border-slate-200 bg-white px-4 py-4 md:px-6">
                 <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
@@ -135,6 +126,7 @@ export default function GuidePage() {
                         </div>
                         <h1 className="text-2xl md:text-3xl font-black text-slate-800">{t('subtitle')}</h1>
                     </div>
+                    <label className="relative w-full max-w-sm"><span className="sr-only">Rechercher dans le guide</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Rechercher dans le guide…" className="clinical-input pl-10" /></label>
                     <button
                         onClick={() => router.push('/dashboard')}
                         className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm"
@@ -151,7 +143,7 @@ export default function GuidePage() {
                         <div className="sticky top-40">
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">{t('toc')}</h3>
                             <nav className="space-y-1">
-                                {sectionKeys.map((key) => {
+                                {visibleSectionKeys.map((key) => {
                                     const Icon = sectionIcons[key];
                                     return (
                                         <button
@@ -185,8 +177,8 @@ export default function GuidePage() {
                             <ChevronDown size={16} className={`transition-transform ${mobileTocOpen ? 'rotate-180' : ''}`} />
                         </button>
                         {mobileTocOpen && (
-                            <div className="mt-2 bg-white rounded-xl border border-slate-200 shadow-sm p-2 space-y-1">
-                                {sectionKeys.map((key) => {
+                            <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2 space-y-1">
+                                {visibleSectionKeys.map((key) => {
                                     const Icon = sectionIcons[key];
                                     return (
                                         <button
@@ -208,8 +200,8 @@ export default function GuidePage() {
                     </div>
 
                     {/* Main Content */}
-                    <main className="flex-1 space-y-8">
-                        {sectionKeys.map((key) => {
+                    <main className="flex-1 space-y-6">
+                        {visibleSectionKeys.map((key) => {
                             const Icon = sectionIcons[key];
                             const isStepSection = stepSections.includes(key);
                             const isFeatureSection = featureSections.includes(key);
@@ -221,7 +213,7 @@ export default function GuidePage() {
                                 <section
                                     key={key}
                                     id={`section-${key}`}
-                                    className={`bg-white rounded-2xl border ${sectionBorderColors[key]} shadow-sm overflow-hidden scroll-mt-40`}
+                                    className="scroll-mt-40 overflow-hidden rounded-xl border border-slate-200 bg-white"
                                 >
                                     {/* Section Header */}
                                     <div className="px-6 py-5 border-b border-slate-100">

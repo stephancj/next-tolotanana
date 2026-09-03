@@ -1,108 +1,84 @@
-
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
-import { medicalRecords, surgeons, recordSurgeons } from '@/lib/schema';
-import { eq, inArray } from 'drizzle-orm';
+import { medicalRecords, surgeons, recordSurgeons, medicalAuditLog, syncMutations, syncEntityVersions } from '@/lib/schema';
+import { and, eq, inArray } from 'drizzle-orm';
+import { validUuid } from '@/lib/medical-audit';
 
-// PUSH: Client sends updates for record-surgeon links
+export const dynamic = 'force-dynamic';
+const ENTITY = 'record_surgeons';
+
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { updates } = body; // Array of { record_public_id, surgeon_public_ids: string[] }
+        const { updates } = await req.json();
+        if (!Array.isArray(updates) || !updates.length) return NextResponse.json({ processed: [], conflicts: [], errors: [] });
+        const processed: Array<{ public_id: string; mutation_id: string; revision: number }> = [];
+        const conflicts: Array<{ public_id: string; mutation_id: string; revision: number; server: string[] }> = [];
+        const errors: Array<{ id: string; error: string }> = [];
 
-        if (!updates || !Array.isArray(updates) || updates.length === 0) {
-            return NextResponse.json({ success: true, processed: [] });
-        }
-
-        const processedIds: string[] = [];
-        const errors: any[] = [];
-
-        for (const update of updates) {
+        for (const update of updates.slice(0, 100)) {
             try {
-                const { record_public_id, surgeon_public_ids } = update;
-
-                if (!record_public_id) continue;
-
-                // 1. Get Medical Record ID
-                const record = await db.select({ id: medicalRecords.id })
-                    .from(medicalRecords)
-                    .where(eq(medicalRecords.public_id, record_public_id))
-                    .limit(1);
-
-                if (record.length === 0) {
-                    errors.push({ id: record_public_id, error: 'Record not found' });
-                    continue;
-                }
-                const recordId = record[0].id;
-
-                // 2. Resolve Surgeon IDs
-                let surgeonIds: number[] = [];
-                if (surgeon_public_ids && surgeon_public_ids.length > 0) {
-                    const surgeonRecords = await db.select({ id: surgeons.id })
-                        .from(surgeons)
-                        .where(inArray(surgeons.public_id, surgeon_public_ids));
-                    surgeonIds = surgeonRecords.map(s => s.id);
-                }
-
-                // 3. Update Links (Delete existing for this record, Insert new)
-                await db.transaction(async (tx) => {
-                    await tx.delete(recordSurgeons)
-                        .where(eq(recordSurgeons.medical_record_id, recordId));
-
-                    if (surgeonIds.length > 0) {
-                        await tx.insert(recordSurgeons)
-                            .values(surgeonIds.map(sId => ({
-                                medical_record_id: recordId,
-                                surgeon_id: sId
-                            })));
+                const mutationId = validUuid(update.mutation_id);
+                if (!validUuid(update.record_public_id) || !mutationId) throw new Error('Invalid IDs');
+                const result = await db.transaction(async tx => {
+                    const receipt = await tx.select().from(syncMutations).where(eq(syncMutations.mutation_id, mutationId)).limit(1);
+                    if (receipt.length) return { kind: 'ok' as const, revision: receipt[0].revision };
+                    const record = await tx.select({ id: medicalRecords.id }).from(medicalRecords)
+                        .where(eq(medicalRecords.public_id, update.record_public_id)).limit(1);
+                    if (!record.length) throw new Error('Record not found');
+                    const version = await tx.select().from(syncEntityVersions).where(and(
+                        eq(syncEntityVersions.entity, ENTITY), eq(syncEntityVersions.public_id, update.record_public_id)
+                    )).limit(1);
+                    const currentRevision = version[0]?.revision || 0;
+                    const previous = await tx.select({ public_id: surgeons.public_id }).from(recordSurgeons)
+                        .innerJoin(surgeons, eq(recordSurgeons.surgeon_id, surgeons.id))
+                        .where(eq(recordSurgeons.medical_record_id, record[0].id));
+                    const beforeIds = previous.map(x => x.public_id).sort();
+                    if (Number(update.revision || 0) !== currentRevision) {
+                        return { kind: 'conflict' as const, revision: currentRevision, server: beforeIds };
                     }
+                    const requestedIds: string[] = Array.isArray(update.surgeon_public_ids) ? update.surgeon_public_ids : [];
+                    const rows = requestedIds.length ? await tx.select({ id: surgeons.id }).from(surgeons)
+                        .where(inArray(surgeons.public_id, requestedIds)) : [];
+                    await tx.delete(recordSurgeons).where(eq(recordSurgeons.medical_record_id, record[0].id));
+                    if (rows.length) await tx.insert(recordSurgeons).values(rows.map(s => ({
+                        medical_record_id: record[0].id, surgeon_id: s.id
+                    })));
+                    const revision = currentRevision + 1;
+                    await tx.insert(syncEntityVersions).values({ entity: ENTITY, public_id: update.record_public_id, revision })
+                        .onConflictDoUpdate({ target: [syncEntityVersions.entity, syncEntityVersions.public_id], set: { revision, updated_at: new Date() } });
+                    await tx.insert(medicalAuditLog).values({
+                        medical_record_public_id: update.record_public_id, mutation_id: mutationId,
+                        action: 'relation_update', source: 'sync', device_id: validUuid(update.device_id),
+                        changed_fields: { surgeons: { before: beforeIds, after: requestedIds.sort() } },
+                        before_data: { surgeon_public_ids: beforeIds }, after_data: { surgeon_public_ids: requestedIds.sort() },
+                        occurred_at: update.occurred_at ? new Date(update.occurred_at) : null
+                    });
+                    await tx.insert(syncMutations).values({ mutation_id: mutationId, entity: ENTITY, public_id: update.record_public_id, revision });
+                    return { kind: 'ok' as const, revision };
                 });
-
-                processedIds.push(record_public_id);
-            } catch (err) {
-                console.error(`Error processing record-surgeon link for ${update.record_public_id}:`, err);
-                errors.push({ id: update.record_public_id, error: String(err) });
-            }
+                if (result.kind === 'conflict') conflicts.push({ public_id: update.record_public_id, mutation_id: update.mutation_id, revision: result.revision, server: result.server });
+                else processed.push({ public_id: update.record_public_id, mutation_id: update.mutation_id, revision: result.revision });
+            } catch (error) { errors.push({ id: update.record_public_id || 'unknown', error: String(error) }); }
         }
-
-        return NextResponse.json({ success: true, processed: processedIds, errors });
-
+        return NextResponse.json({ processed, conflicts, errors });
     } catch (error) {
-        console.error('Push record-surgeons error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error(error); return NextResponse.json({ error: 'Record-surgeon sync failed' }, { status: 500 });
     }
 }
 
-// PULL: Get all record-surgeon links
-export async function GET(req: Request) {
+export async function GET() {
     try {
-        // Fetch all links, join with public_ids
-        const links = await db.select({
-            record_public_id: medicalRecords.public_id,
-            surgeon_public_id: surgeons.public_id
-        })
-            .from(recordSurgeons)
-            .innerJoin(medicalRecords, eq(recordSurgeons.medical_record_id, medicalRecords.id))
+        const records = await db.select({ public_id: medicalRecords.public_id }).from(medicalRecords);
+        const links = await db.select({ record_public_id: medicalRecords.public_id, surgeon_public_id: surgeons.public_id })
+            .from(recordSurgeons).innerJoin(medicalRecords, eq(recordSurgeons.medical_record_id, medicalRecords.id))
             .innerJoin(surgeons, eq(recordSurgeons.surgeon_id, surgeons.id));
-
-        // Group by record_public_id
-        const grouped: Record<string, string[]> = {};
-        links.forEach(link => {
-            if (!grouped[link.record_public_id]) {
-                grouped[link.record_public_id] = [];
-            }
-            grouped[link.record_public_id].push(link.surgeon_public_id);
-        });
-
-        // Convert to array format
-        const result = Object.entries(grouped).map(([record_public_id, surgeon_public_ids]) => ({
-            record_public_id,
-            surgeon_public_ids
-        }));
-
-        return NextResponse.json(result);
+        const versions = await db.select().from(syncEntityVersions).where(eq(syncEntityVersions.entity, ENTITY));
+        return NextResponse.json(records.map(record => ({
+            record_public_id: record.public_id,
+            surgeon_public_ids: links.filter(x => x.record_public_id === record.public_id).map(x => x.surgeon_public_id),
+            revision: versions.find(x => x.public_id === record.public_id)?.revision || 0
+        })));
     } catch (error) {
-        console.error('Pull record-surgeons error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error(error); return NextResponse.json({ error: 'Record-surgeon pull failed' }, { status: 500 });
     }
 }

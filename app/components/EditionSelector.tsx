@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Edition } from '@/lib/client-db';
@@ -15,6 +15,7 @@ interface EditionSelectorProps {
 
 export default function EditionSelector({ onSelect, onClose }: EditionSelectorProps) {
     const [isLoadingFromRemote, setIsLoadingFromRemote] = useState(false);
+    const firstEditionRef = useRef<HTMLButtonElement>(null);
     const t = useTranslations('editions.selector');
 
     // Charger toutes les éditions actives
@@ -57,6 +58,13 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
         }
     }, [editions, isLoadingFromRemote, t]);
 
+    useEffect(() => {
+        firstEditionRef.current?.focus();
+        const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && onClose) onClose(); };
+        document.addEventListener('keydown', close);
+        return () => document.removeEventListener('keydown', close);
+    }, [onClose, editions]);
+
     const handleSelectEdition = (edition: Edition) => {
         saveSelectedEdition(edition);
         onSelect(edition);
@@ -68,21 +76,21 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <div className="mobile-dialog-shell fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div role="dialog" aria-modal="true" aria-labelledby="edition-dialog-title" className="mobile-dialog flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                <div className="border-b border-slate-200 bg-white p-4 sm:p-6">
+                    <h2 id="edition-dialog-title" className="flex items-center gap-3 text-2xl font-black text-slate-950">
                         <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain bg-white rounded-full p-1" />
                         {t('title')}
                     </h2>
-                    <p className="text-indigo-100 mt-2">
+                    <p className="mt-2 text-slate-600">
                         {t('description')}
                     </p>
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                <div className="mobile-scroll min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
                     {/* Liste des éditions */}
                     <div className="space-y-3 mb-6">
                         {editions.length === 0 ? (
@@ -91,8 +99,9 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                                 <p className="text-sm mt-2">{t('syncPrompt')}</p>
                             </div>
                         ) : (
-                            editions.map((edition) => (
+                            editions.map((edition, index) => (
                                 <button
+                                    ref={index === 0 ? firstEditionRef : undefined}
                                     key={edition.id}
                                     onClick={() => handleSelectEdition(edition)}
                                     className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-indigo-500 hover:shadow-lg transition-all group"
@@ -102,7 +111,7 @@ export default function EditionSelector({ onSelect, onClose }: EditionSelectorPr
                                             <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
                                                 {edition.name}
                                             </h3>
-                                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                                            <div className="mt-2 flex flex-col gap-1 text-sm text-gray-600 min-[420px]:flex-row min-[420px]:gap-4">
                                                 <span className="flex items-center gap-1">
                                                     <span>📍</span>
                                                     {edition.place}

@@ -15,7 +15,8 @@ import {
 import { Wand2, BarChart3, Save, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEdition } from '@/app/providers/EditionProvider';
-import { Edition } from '@/lib/client-db';
+import { db } from '@/lib/client-db';
+import { replaceRecordSurgeons, updateMedicalRecord } from '@/lib/local-records';
 import { PatientCardData, SurgeonData, autoSuggestPlacements, getAgeCategory } from '@/lib/planning-utils';
 import DayColumn from './planning/DayColumn';
 import PatientCard from './planning/PatientCard';
@@ -23,6 +24,7 @@ import SurgeonAssignPopover from './planning/SurgeonAssignPopover';
 import SurgeonStatsPanel from './planning/SurgeonStatsPanel';
 import PlanningFilters from './planning/PlanningFilters';
 import LoadingSpinner from './LoadingSpinner';
+import { useFeedback } from '@/app/providers/FeedbackProvider';
 
 const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 const POOL_KEY = 'Pool';
@@ -39,13 +41,13 @@ const columnIdToDay: Record<string, string> = {
 export default function PlanningBoard() {
     const { currentEdition } = useEdition();
     const router = useRouter();
+    const { notify, confirm } = useFeedback();
 
     // Data state
     const [records, setRecords] = useState<PatientCardData[]>([]);
     const [editionSurgeons, setEditionSurgeons] = useState<SurgeonData[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [remoteEditionId, setRemoteEditionId] = useState<number | null>(null);
 
     // Dirty tracking
     const [dirtyRecordIds, setDirtyRecordIds] = useState<Set<number>>(new Set());
@@ -55,6 +57,7 @@ export default function PlanningBoard() {
     const [selectedPoolIds, setSelectedPoolIds] = useState<Set<number>>(new Set());
     const [surgeonPopoverPatientId, setSurgeonPopoverPatientId] = useState<number | null>(null);
     const [showStats, setShowStats] = useState(false);
+    const [focusedDay, setFocusedDay] = useState('all');
 
     // Filters
     const [filterDistance, setFilterDistance] = useState('');
@@ -67,95 +70,34 @@ export default function PlanningBoard() {
         useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     );
 
-    // ─── Data Fetching ────────────────────────────────────────────────
+    // ─── Local-first data loading ─────────────────────────────────────
     const fetchData = useCallback(async () => {
-        if (!currentEdition?.public_id) {
-            setRecords([]);
-            setLoading(false);
-            return;
-        }
-
+        if (!currentEdition?.id) { setRecords([]); setLoading(false); return; }
         try {
             setLoading(true);
+            const editionRecords = await db.medical_records.filter(r =>
+                r.edition_id === currentEdition.id && r.program_mission === 1 && r.deleted !== 1
+            ).toArray();
+            const editionLinks = await db.edition_surgeons.where('edition_id').equals(currentEdition.id).toArray();
+            const surgeonRows = await db.surgeons.bulkGet(editionLinks.map(link => link.surgeon_id));
+            setEditionSurgeons(surgeonRows.filter(Boolean).map(s => ({
+                id: s!.id!, public_id: s!.public_id, name: s!.name, specialty: s!.specialty
+            })));
 
-            // 1. Resolve remote edition ID
-            const editionsRes = await fetch('/api/editions');
-            if (!editionsRes.ok) throw new Error('Failed to fetch editions');
-            const remoteEditions = await editionsRes.json();
-            const remoteEdition = remoteEditions.find((e: Edition) => e.public_id === currentEdition.public_id);
-            if (!remoteEdition) {
-                setRecords([]);
-                setLoading(false);
-                return;
-            }
-            const editionId = remoteEdition.id;
-            setRemoteEditionId(editionId);
-
-            // 2. Fetch records + surgeons in parallel
-            const [recordsRes, surgeonsRes] = await Promise.all([
-                fetch('/api/records'),
-                fetch(`/api/editions/${editionId}/surgeons`),
-            ]);
-
-            if (!recordsRes.ok) throw new Error('Failed to fetch records');
-            const allRecords = await recordsRes.json();
-
-            const surgeons: SurgeonData[] = surgeonsRes.ok ? await surgeonsRes.json() : [];
-            setEditionSurgeons(surgeons);
-
-            // 3. Filter records: edition + program_mission + not deleted
-            const editionRecords = allRecords.filter(
-                (r: PatientCardData & { edition_id: number; program_mission: number; deleted?: number | boolean }) =>
-                    r.edition_id === editionId && r.program_mission === 1 && !r.deleted
-            );
-
-            // 4. Fetch record-surgeon assignments
-            const recordIds = editionRecords.map((r: PatientCardData) => r.id);
-            let recordSurgeonMap: Record<number, number[]> = {};
-
-            if (recordIds.length > 0) {
-                try {
-                    const rsRes = await fetch('/api/record_surgeons');
-                    if (rsRes.ok) {
-                        const rsData = await rsRes.json();
-                        // Build map: record_id -> surgeon_ids[]
-                        for (const rs of rsData) {
-                            if (!recordSurgeonMap[rs.medical_record_id]) {
-                                recordSurgeonMap[rs.medical_record_id] = [];
-                            }
-                            recordSurgeonMap[rs.medical_record_id].push(rs.surgeon_id);
-                        }
-                    }
-                } catch {
-                    // record_surgeons fetch failed, continue without assignments
-                }
-            }
-
-            // 5. Map to PatientCardData
-            const mapped: PatientCardData[] = editionRecords.map((r: Record<string, unknown>) => ({
-                id: r.id as number,
-                public_id: (r.public_id || '') as string,
-                last_name: (r.last_name || '') as string,
-                first_name: (r.first_name || '') as string,
-                age: (r.age || '') as string,
-                distance: (r.distance || 'non précisé') as string,
-                diagnosis_category: (r.diagnosis_category || '') as string,
-                clinical_diagnosis: (r.clinical_diagnosis || '') as string,
-                planning_day: (r.planning_day || 'A définir') as string,
-                program_mission: r.program_mission as number,
-                dossier_number: (r.dossier_number || '') as string,
-                gender: (r.gender || '') as string,
-                assignedSurgeonIds: recordSurgeonMap[r.id as number] || [],
-            }));
-
+            const mapped = await Promise.all(editionRecords.map(async r => ({
+                id: r.id!, public_id: r.public_id || '', last_name: r.last_name || '',
+                first_name: r.first_name || '', age: r.age || '', distance: r.distance || 'non précisé',
+                diagnosis_category: r.diagnosis_category || '', clinical_diagnosis: r.clinical_diagnosis || '',
+                planning_day: r.planning_day || 'A définir', program_mission: r.program_mission,
+                dossier_number: r.dossier_number || '', gender: r.gender || '',
+                assignedSurgeonIds: (await db.record_surgeons.where('medical_record_id').equals(r.id!).toArray())
+                    .map(link => link.surgeon_id)
+            })));
             setRecords(mapped);
         } catch (err) {
-            console.error('Planning fetch error:', err);
-            setRecords([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [currentEdition?.public_id]);
+            console.error('Planning local load error:', err); setRecords([]);
+        } finally { setLoading(false); }
+    }, [currentEdition?.id]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -272,15 +214,13 @@ export default function PlanningBoard() {
     }, [poolRecords, selectedPoolIds.size]);
 
     // ─── Auto-Suggest ─────────────────────────────────────────────────
-    const handleAutoSuggest = useCallback(() => {
+    const handleAutoSuggest = useCallback(async () => {
         const unplanned = records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !DAYS.includes(r.planning_day));
         if (unplanned.length === 0) return;
 
         const placements = autoSuggestPlacements(unplanned, recordsByDay);
 
-        if (!confirm(`Placer automatiquement ${unplanned.length} patient(s) ? Les patients les plus loin et les bébés seront priorisés en début de semaine.`)) {
-            return;
-        }
+        if (!await confirm({ title: 'Auto-planifier les patients ?', message: `${unplanned.length} patient(s) seront répartis. Les patients éloignés et les bébés seront placés en début de semaine.`, confirmLabel: 'Auto-planifier' })) return;
 
         setRecords(prev => prev.map(r => {
             const newDay = placements[r.id!];
@@ -290,7 +230,7 @@ export default function PlanningBoard() {
             }
             return r;
         }));
-    }, [records, recordsByDay]);
+    }, [confirm, records, recordsByDay]);
 
     // ─── Save ─────────────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
@@ -309,24 +249,19 @@ export default function PlanningBoard() {
                 }
             });
 
-            // Batch PATCH per day value
             for (const [day, ids] of Object.entries(updatesByDay)) {
-                const response = await fetch('/api/records', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids, planning_day: day }),
-                });
-                if (!response.ok) throw new Error(`Failed to save day ${day}`);
+                await Promise.all(ids.map(id => updateMedicalRecord(id, { planning_day: day })));
             }
 
             setDirtyRecordIds(new Set());
+            notify('Planning enregistré sur cette tablette.', 'success');
         } catch (err) {
             console.error('Save failed:', err);
-            alert('Erreur lors de la sauvegarde. Réessayez.');
+            notify('La planification reste sur cette tablette. Réessayez la sauvegarde.', 'error');
         } finally {
             setSaving(false);
         }
-    }, [dirtyRecordIds, records]);
+    }, [dirtyRecordIds, notify, records]);
 
     // ─── Surgeon Assignment ───────────────────────────────────────────
     const handleSurgeonSave = useCallback(async (patientId: number, surgeonIds: number[]) => {
@@ -334,15 +269,10 @@ export default function PlanningBoard() {
         updateRecordSurgeons(patientId, surgeonIds);
         setSurgeonPopoverPatientId(null);
 
-        // Save to server
         try {
-            await fetch('/api/record_surgeons', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ medical_record_id: patientId, surgeon_ids: surgeonIds }),
-            });
+            await replaceRecordSurgeons(patientId, surgeonIds);
         } catch (err) {
-            console.error('Surgeon assignment save failed:', err);
+            console.error('Surgeon assignment local save failed:', err);
         }
     }, [updateRecordSurgeons]);
 
@@ -451,6 +381,7 @@ export default function PlanningBoard() {
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                     >
+                        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden" aria-label="Jour affiché"><button onClick={() => setFocusedDay('all')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'all' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Toute la semaine</button><button onClick={() => setFocusedDay('Pool')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'Pool' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Non planifiés</button>{DAYS.map(day => <button key={day} onClick={() => setFocusedDay(day)} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === day ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>{day}</button>)}</div>
                         {/* Pool select all */}
                         {poolRecords.length > 0 && (
                             <div className="flex items-center gap-2 mb-3">
@@ -469,7 +400,7 @@ export default function PlanningBoard() {
                         {/* Columns */}
                         <div className="flex gap-3 overflow-x-auto pb-4">
                             {/* Pool */}
-                            <DayColumn
+                            {(focusedDay === 'all' || focusedDay === 'Pool') && <DayColumn
                                 day={POOL_KEY}
                                 displayName={`Non planifiés (${records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !DAYS.includes(r.planning_day)).length})`}
                                 patients={poolRecords}
@@ -480,10 +411,10 @@ export default function PlanningBoard() {
                                 onChangePlanningDay={updateRecordDay}
                                 onClickCard={(id) => router.push(`/operation?id=${id}`)}
                                 isPool
-                            />
+                            />}
 
                             {/* Day columns */}
-                            {DAYS.map(day => (
+                            {DAYS.filter(day => focusedDay === 'all' || focusedDay === day).map(day => (
                                 <DayColumn
                                     key={day}
                                     day={day}

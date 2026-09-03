@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { MedicalRecord } from '@/lib/client-db';
 import { useTranslations } from '../providers/I18nProvider';
+import MedicalAuditTimeline from './MedicalAuditTimeline';
 
 interface PatientDetailModalProps {
     record: MedicalRecord;
@@ -37,13 +39,20 @@ function DetailItem({ label, value, className = '' }: { label: string; value?: s
     return (
         <div className={className}>
             <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-            <div className="text-gray-800 font-medium">{value || 'N/A'}</div>
+            <div className="text-gray-800 font-medium">{value === null || value === undefined || value === '' ? 'N/A' : value}</div>
         </div>
     );
 }
 
 export default function PatientDetailModal({ record, onClose }: PatientDetailModalProps) {
     const t = useTranslations('patient');
+    const closeRef = useRef<HTMLButtonElement>(null);
+    useEffect(() => {
+        closeRef.current?.focus();
+        const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+        document.addEventListener('keydown', closeOnEscape);
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [onClose]);
 
     if (!record) return null;
 
@@ -54,17 +63,19 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-t-2xl z-10">
+        <div className="mobile-dialog-shell fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" onClick={onClose}>
+            <div role="dialog" aria-modal="true" aria-labelledby="patient-dialog-title" className="mobile-dialog mobile-scroll w-full max-w-4xl max-h-[90dvh] overflow-y-auto rounded-xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="sticky top-0 z-10 border-b border-slate-200 bg-white p-4 sm:p-5">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h2 className="text-2xl font-bold">{record.last_name} {record.first_name}</h2>
-                            <p className="text-indigo-100 mt-1">Dossier: {record.dossier_number || 'N/A'}</p>
+                            <h2 id="patient-dialog-title" className="text-2xl font-black text-slate-950">{record.last_name} {record.first_name}</h2>
+                            <p className="mt-1 text-slate-500">Dossier: {record.dossier_number || 'N/A'}</p>
                         </div>
                         <button
+                            ref={closeRef}
                             onClick={onClose}
-                            className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition"
+                            aria-label="Fermer le dossier"
+                            className="grid min-h-11 min-w-11 place-items-center rounded-lg text-slate-600 hover:bg-slate-100"
                         >
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -73,13 +84,13 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                     </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="space-y-6 p-4 sm:p-6">
                     {/* Informations personnelles */}
                     <div>
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
                             <span className="text-indigo-600">👤</span> {t('sections.personal')}
                         </h3>
-                        <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-xl">
+                        <div className="grid grid-cols-1 gap-4 rounded-xl bg-gray-50 p-4 min-[420px]:grid-cols-2">
                             <DetailItem label={t('fields.dob')} value={record.dob} />
                             <div className="flex flex-col">
                                 <span className="text-xs font-semibold text-gray-500 mb-1">{t('fields.age')}</span>
@@ -87,7 +98,7 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                             </div>
                             <DetailItem label={t('fields.gender')} value={getGenderLabel(record.gender)} />
                             <DetailItem label={t('fields.phone')} value={[record.phone1, record.phone2].filter(Boolean).join(' / ') || 'N/A'} />
-                            <DetailItem label={t('fields.address')} value={record.address} className="col-span-2" />
+                            <DetailItem label={t('fields.address')} value={record.address} className="min-[420px]:col-span-2" />
                             <DetailItem label={t('fields.distance')} value={record.distance || t('values.unspecified')} />
                         </div>
                     </div>
@@ -97,7 +108,7 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                         <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
                             <span className="text-red-600">❤️</span> {t('sections.medical')}
                         </h3>
-                        <div className="grid grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl">
+                        <div className="grid grid-cols-2 gap-4 rounded-xl bg-gray-50 p-4 sm:grid-cols-3">
                             <DetailItem label={t('fields.weight')} value={`${record.weight || '?'} kg`} />
                             <DetailItem label={t('fields.height')} value={`${record.height || '?'} cm`} />
                             <DetailItem label={t('fields.bmi')} value={record.bmi?.toString() || '?'} />
@@ -141,7 +152,7 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                             {record.history_others && (
                                 <DetailItem label={t('fields.historyOthers')} value={record.history_others} />
                             )}
-                            <div className="grid grid-cols-2 gap-4 mt-3">
+                            <div className="mt-3 grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
                                 <DetailItem label={t('fields.asaScore')} value={record.asa_score?.toString() || 'N/A'} />
                                 <DetailItem label={t('fields.anesthesiaType')} value={record.anesthesia_type || 'N/A'} />
                             </div>
@@ -151,6 +162,7 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                         </div>
                     </div>
                 </div>
+                {record.public_id && <MedicalAuditTimeline publicId={record.public_id} />}
             </div>
         </div>
     );

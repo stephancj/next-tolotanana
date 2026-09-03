@@ -3,8 +3,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
-import { useSync } from '../hooks/useSync';
 import EditionSelector from '@/app/components/EditionSelector';
+import { usePathname } from 'next/navigation';
 
 interface EditionContextType {
     currentEdition: Edition | null;
@@ -18,12 +18,11 @@ interface EditionContextType {
 const EditionContext = createContext<EditionContextType | undefined>(undefined);
 
 export function EditionProvider({ children }: { children: ReactNode }) {
+    const pathname = usePathname();
+    const editionOptional = pathname?.startsWith('/volunteers');
     const [currentEdition, setCurrentEditionState] = useState<Edition | null>(null);
     const [showEditionSelector, setShowEditionSelector] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-
-    // Sync hook needs to run globally
-    useSync();
 
     useEffect(() => {
         const loadEdition = async () => {
@@ -39,17 +38,17 @@ export function EditionProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                setShowEditionSelector(true);
+                setShowEditionSelector(!editionOptional);
                 setIsLoading(false);
             } catch (error) {
                 console.error("Error loading edition:", error);
-                setShowEditionSelector(true);
+                setShowEditionSelector(!editionOptional);
                 setIsLoading(false);
             }
         };
 
         loadEdition();
-    }, []);
+    }, [editionOptional]);
 
     const handleSelectEdition = (edition: Edition) => {
         setCurrentEditionState(edition);
@@ -58,10 +57,10 @@ export function EditionProvider({ children }: { children: ReactNode }) {
 
     if (isLoading) {
         return (
-            <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
+            <main className="flex min-h-screen items-center justify-center bg-slate-50">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600 font-medium">Chargement de l'édition...</p>
+                    <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
+                    <p className="mt-4 text-gray-600 font-medium">Chargement de l&apos;édition...</p>
                 </div>
             </main>
         );

@@ -9,9 +9,10 @@ export default function LanguageSwitcher() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const stored = getLocale();
-    setLocale(stored);
+    queueMicrotask(() => {
+      setMounted(true);
+      setLocale(getLocale());
+    });
   }, []);
 
   const handleLocaleChange = (newLocale: Locale) => {

@@ -1,0 +1,1 @@
+ALTER TABLE "medical_audit_log" ADD COLUMN "occurred_at" timestamp;

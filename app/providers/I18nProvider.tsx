@@ -23,12 +23,9 @@ const messagesMap: Record<Locale, Messages> = {
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>(defaultLocale);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    const storedLocale = getLocale();
-    setLocale(storedLocale);
+    queueMicrotask(() => setLocale(getLocale()));
   }, []);
 
   const messages = messagesMap[locale];
@@ -36,11 +33,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // Translation function with support for nested keys and parameter interpolation
   const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
-    let value: any = messages;
+    let value: unknown = messages;
 
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {
-        value = value[k];
+        value = (value as Record<string, unknown>)[k];
       } else {
         console.warn(`Translation key not found: ${key}`);
         return key;
@@ -53,19 +50,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
 
     // Replace parameters in the string (e.g., {name})
+    let translated = value;
     if (params) {
       Object.entries(params).forEach(([paramKey, paramValue]) => {
-        value = value.replace(`{${paramKey}}`, String(paramValue));
+        translated = translated.replace(`{${paramKey}}`, String(paramValue));
       });
     }
 
-    return value;
+    return translated;
   };
-
-  // Prevent hydration mismatch by not rendering children until mounted
-  if (!mounted) {
-    return <div className="min-h-screen bg-slate-50/80">{children}</div>;
-  }
 
   return (
     <I18nContext.Provider value={{ locale, messages, t }}>

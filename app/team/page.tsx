@@ -1,195 +1,74 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db, type Surgeon } from '@/lib/client-db';
+import { replaceEditionSurgeons, saveSurgeon } from '@/lib/local-records';
 import { useTranslations } from '@/app/providers/I18nProvider';
 import { useEdition } from '@/app/providers/EditionProvider';
 import { useRouter } from 'next/navigation';
-
-interface Surgeon {
-    id: number;
-    public_id: string;
-    name: string;
-    specialty?: string;
-    email?: string;
-    phone?: string;
-    is_active: number;
-}
+import { useFeedback } from '@/app/providers/FeedbackProvider';
 
 export default function TeamPage() {
-    const { currentEdition } = useEdition();
-    const router = useRouter();
-    const [surgeons, setSurgeons] = useState<Surgeon[]>([]);
-    const [editionSurgeons, setEditionSurgeons] = useState<Surgeon[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [newSurgeonName, setNewSurgeonName] = useState('');
-    const [newSpecialty, setNewSpecialty] = useState('');
-    const t = useTranslations('surgeons');
-    const tCommon = useTranslations('common');
+    const { currentEdition } = useEdition(); const router = useRouter(); const { confirm, notify } = useFeedback();
+    const t = useTranslations('surgeons'); const tCommon = useTranslations('common');
+    const [name, setName] = useState(''); const [specialty, setSpecialty] = useState('');
+    const [editing, setEditing] = useState<Surgeon | null>(null); const [saving, setSaving] = useState(false);
+    const surgeons = useLiveQuery(() => db.surgeons.filter(s => s.deleted !== 1).sortBy('name'), []) || [];
+    const linkedIds = useLiveQuery(async () => currentEdition?.id
+        ? (await db.edition_surgeons.where('edition_id').equals(currentEdition.id).toArray()).map(x => x.surgeon_id)
+        : [], [currentEdition?.id]) || [];
 
-    const fetchData = useCallback(async () => {
+    const submit = async (event: React.FormEvent) => {
+        event.preventDefault(); if (!name.trim()) return; setSaving(true);
         try {
-            setLoading(true);
-            const allRes = await fetch('/api/surgeons');
-            if (allRes.ok) {
-                const allData = await allRes.json();
-                setSurgeons(allData);
-            }
-
-            if (currentEdition?.id) {
-                const linkedRes = await fetch(`/api/editions/${currentEdition.id}/surgeons`);
-                if (linkedRes.ok) {
-                    const linkedData = await linkedRes.json();
-                    setEditionSurgeons(linkedData);
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching data:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [currentEdition?.id]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    const handleCreateSurgeon = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newSurgeonName.trim()) return;
-
-        try {
-            const res = await fetch('/api/surgeons', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: newSurgeonName, specialty: newSpecialty }),
-            });
-
-            if (res.ok) {
-                setNewSurgeonName('');
-                setNewSpecialty('');
-                fetchData(); // Refresh list
-            }
-        } catch (error) {
-            console.error('Error creating surgeon:', error);
-        }
+            await saveSurgeon({ name: name.trim(), specialty: specialty.trim(), is_active: 1 }, editing?.id);
+            setName(''); setSpecialty(''); setEditing(null);
+        } finally { setSaving(false); }
     };
-
-    const handleLinkSurgeon = async (surgeon: Surgeon) => {
+    const toggle = async (surgeonId: number) => {
         if (!currentEdition?.id) return;
-
-        try {
-            const res = await fetch(`/api/editions/${currentEdition.id}/surgeons`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ surgeon_id: surgeon.id }),
-            });
-
-            if (res.ok) {
-                fetchData();
-            }
-        } catch (error) {
-            console.error('Error linking surgeon:', error);
-        }
+        const next = linkedIds.includes(surgeonId) ? linkedIds.filter(id => id !== surgeonId) : [...linkedIds, surgeonId];
+        await replaceEditionSurgeons(currentEdition.id, next);
+    };
+    const beginEdit = (surgeon: Surgeon) => { setEditing(surgeon); setName(surgeon.name); setSpecialty(surgeon.specialty || ''); };
+    const remove = async (surgeon: Surgeon) => {
+        if (!surgeon.id || !await confirm({ title: 'Retirer ce membre ?', message: `${surgeon.name} ne sera plus proposé dans les affectations.`, confirmLabel: 'Retirer', destructive: true })) return;
+        await saveSurgeon({ deleted: 1, is_active: 0 }, surgeon.id); notify('Membre retiré de l’équipe.', 'success');
     };
 
-    const handleUnlinkSurgeon = async (surgeon: Surgeon) => {
-        if (!currentEdition?.id) return;
+    return <main className="min-h-screen bg-slate-50 px-4 py-8">
+        <div className="mx-auto max-w-4xl">
+            <header className="mb-8 flex items-start justify-between gap-4">
+                <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">Équipe locale</p>
+                    <h1 className="mt-1 text-3xl font-black text-slate-900">{t('title')}</h1>
+                    <p className="mt-2 text-sm text-slate-500">Les changements sont enregistrés sur cette tablette puis synchronisés.</p></div>
+                <button onClick={() => router.push('/dashboard')} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 focus-visible:outline-2 focus-visible:outline-indigo-600">← {tCommon('back')}</button>
+            </header>
 
-        try {
-            const res = await fetch(`/api/editions/${currentEdition.id}/surgeons`, {
-                method: 'DELETE', // DELETE request
-                headers: { 'Content-Type': 'application/json' }, // We need to send content type for DELETE with body
-                body: JSON.stringify({ surgeon_id: surgeon.id }),
-            });
+            <form onSubmit={submit} className="mb-8 grid gap-3 border-y border-slate-200 bg-white py-5 md:grid-cols-[1fr_1fr_auto]">
+                <input value={name} onChange={e => setName(e.target.value)} placeholder={t('add.namePlaceholder')} required className="min-h-12 rounded-lg border border-slate-300 px-4 focus:border-indigo-600 focus:outline-none" />
+                <input value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder={t('add.specialtyPlaceholder')} className="min-h-12 rounded-lg border border-slate-300 px-4 focus:border-indigo-600 focus:outline-none" />
+                <button disabled={saving} className="min-h-12 rounded-lg bg-indigo-600 px-6 font-bold text-white disabled:opacity-50">{editing ? 'Mettre à jour' : t('add.submit')}</button>
+                {editing && <button type="button" onClick={() => { setEditing(null); setName(''); setSpecialty(''); }} className="text-left text-sm font-semibold text-slate-500">Annuler la modification</button>}
+            </form>
 
-            if (res.ok) {
-                fetchData();
-            }
-        } catch (error) {
-            console.error('Error unlinking surgeon:', error);
-        }
-    };
-
-    const isLinked = (surgeonId: number) => {
-        return editionSurgeons.some(s => s.id === surgeonId);
-    };
-
-    return (
-        <main className="min-h-screen bg-slate-50 pt-6 font-[family-name:var(--font-geist-sans)]">
-            <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-                <div className="flex justify-between items-center mb-6 border-b pb-4">
-                    <h2 className="text-2xl font-bold text-gray-800">{t('title')}</h2>
-                    <button onClick={() => router.push('/dashboard')} className="px-4 py-2.5 bg-white text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition border border-slate-200 flex items-center gap-2 text-sm">
-                        <span>←</span> {tCommon('back')}
-                    </button>
-                </div>
-
-                {/* Create Surgeon Form */}
-                <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <h3 className="font-semibold text-lg mb-4 text-gray-700">{t('add.title')}</h3>
-                    <form onSubmit={handleCreateSurgeon} className="flex flex-col md:flex-row gap-4">
-                        <input
-                            type="text"
-                            placeholder={t('add.namePlaceholder')}
-                            value={newSurgeonName}
-                            onChange={(e) => setNewSurgeonName(e.target.value)}
-                            className="w-full md:flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            required
-                        />
-                        <input
-                            type="text"
-                            placeholder={t('add.specialtyPlaceholder')}
-                            value={newSpecialty}
-                            onChange={(e) => setNewSpecialty(e.target.value)}
-                            className="w-full md:flex-1 px-4 py-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <button type="submit" className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">
-                            {t('add.submit')}
-                        </button>
-                    </form>
-                </div>
-
-                {/* List and Assign */}
-                <div>
-                    <h3 className="font-semibold text-lg mb-4 text-gray-700 flex justify-between">
-                        <span>{t('list.title')}</span>
-                        {currentEdition && <span className="text-sm font-normal text-gray-500">{t('list.subtitle', { editionName: currentEdition.name })}</span>}
-                    </h3>
-
-                    {loading ? (
-                        <div className="text-center py-8">{t('list.loading')}</div>
-                    ) : (
-                        <div className="space-y-2">
-                            {surgeons.length === 0 ? (
-                                <p className="text-gray-500 italic">{t('list.empty')}</p>
-                            ) : (
-                                surgeons.map((surgeon) => {
-                                    const active = isLinked(surgeon.id);
-                                    return (
-                                        <div key={surgeon.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded border border-gray-100">
-                                            <div>
-                                                <p className="font-bold text-gray-800">{surgeon.name}</p>
-                                                <p className="text-sm text-gray-500">{surgeon.specialty || t('list.unspecified')}</p>
-                                            </div>
-                                            {currentEdition && (
-                                                <button
-                                                    onClick={() => active ? handleUnlinkSurgeon(surgeon) : handleLinkSurgeon(surgeon)}
-                                                    className={`px-4 py-1.5 rounded text-sm font-medium transition ${active
-                                                        ? 'bg-green-100 text-green-700 hover:bg-red-100 hover:text-red-700'
-                                                        : 'bg-gray-200 text-gray-600 hover:bg-indigo-100 hover:text-indigo-700'
-                                                        }`}
-                                                >
-                                                    {active ? t('list.assigned') : t('list.assign')}
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            )}
+            <div className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
+                {surgeons.length === 0 && <p className="p-8 text-center text-slate-500">{t('list.empty')}</p>}
+                {surgeons.map(surgeon => {
+                    const active = Boolean(surgeon.id && linkedIds.includes(surgeon.id));
+                    return <div key={surgeon.public_id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div><div className="flex flex-wrap items-center gap-2"><strong className="text-slate-900">{surgeon.name}</strong>
+                            {surgeon.sync_status !== 'synced' && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">En attente</span>}</div>
+                            <p className="text-sm text-slate-500">{surgeon.specialty || t('list.unspecified')}</p></div>
+                        <div className="flex gap-2">
+                            <button onClick={() => beginEdit(surgeon)} className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold">Modifier</button>
+                            <button onClick={() => surgeon.id && toggle(surgeon.id)} aria-pressed={active} className={`min-h-11 rounded-lg px-4 text-sm font-bold ${active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>{active ? t('list.assigned') : t('list.assign')}</button>
+                            <button onClick={() => void remove(surgeon)} className="min-h-11 rounded-lg px-3 text-sm font-semibold text-red-700 hover:bg-red-50">Retirer</button>
                         </div>
-                    )}
-                </div>
+                    </div>;
+                })}
             </div>
-        </main>
-    );
+        </div>
+    </main>;
 }
