@@ -26,20 +26,14 @@ import PlanningFilters from './planning/PlanningFilters';
 import LoadingSpinner from './LoadingSpinner';
 import { useFeedback } from '@/app/providers/FeedbackProvider';
 
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+import { formatOperationDay, getOperationDays, isUnscheduled } from '@/lib/operation-calendar';
+import OperationCalendarEditor from './OperationCalendarEditor';
 const POOL_KEY = 'Pool';
-
-const columnIdToDay: Record<string, string> = {
-    'column-Pool': 'A définir',
-    'column-Lundi': 'Lundi',
-    'column-Mardi': 'Mardi',
-    'column-Mercredi': 'Mercredi',
-    'column-Jeudi': 'Jeudi',
-    'column-Vendredi': 'Vendredi',
-};
 
 export default function PlanningBoard() {
     const { currentEdition } = useEdition();
+    const days = useMemo(() => getOperationDays(currentEdition), [currentEdition]);
+    const columnIdToDay = useMemo(() => Object.fromEntries([['column-Pool', 'A définir'], ...days.map(day => [`column-${day}`, day])]), [days]);
     const router = useRouter();
     const { notify, confirm } = useFeedback();
 
@@ -75,6 +69,7 @@ export default function PlanningBoard() {
         if (!currentEdition?.id) { setRecords([]); setLoading(false); return; }
         try {
             setLoading(true);
+            setDirtyRecordIds(new Set()); setSelectedPoolIds(new Set()); setFocusedDay('all');
             const editionRecords = await db.medical_records.filter(r =>
                 r.edition_id === currentEdition.id && r.program_mission === 1 && r.deleted !== 1
             ).toArray();
@@ -103,7 +98,7 @@ export default function PlanningBoard() {
 
     // ─── Grouped Data ─────────────────────────────────────────────────
     const poolRecords = useMemo(() => {
-        let pool = records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !DAYS.includes(r.planning_day));
+        let pool = records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !days.includes(r.planning_day));
 
         // Apply filters
         if (filterDistance) pool = pool.filter(r => r.distance === filterDistance);
@@ -111,15 +106,15 @@ export default function PlanningBoard() {
         if (filterAge) pool = pool.filter(r => getAgeCategory(r.age) === filterAge);
 
         return pool;
-    }, [records, filterDistance, filterDiagnosis, filterAge]);
+    }, [records, filterDistance, filterDiagnosis, filterAge, days]);
 
     const recordsByDay = useMemo(() => {
         const grouped: Record<string, PatientCardData[]> = {};
-        for (const day of DAYS) {
+        for (const day of days) {
             grouped[day] = records.filter(r => r.planning_day === day);
         }
         return grouped;
-    }, [records]);
+    }, [records, days]);
 
     const uniqueDiagnoses = useMemo(() => {
         const set = new Set<string>();
@@ -132,11 +127,12 @@ export default function PlanningBoard() {
 
     // ─── Record Mutation Helpers ──────────────────────────────────────
     const updateRecordDay = useCallback((patientId: number, newDay: string) => {
+        if (newDay !== 'A définir' && !days.includes(newDay)) return;
         setRecords(prev => prev.map(r =>
             r.id === patientId ? { ...r, planning_day: newDay } : r
         ));
         setDirtyRecordIds(prev => new Set(prev).add(patientId));
-    }, []);
+    }, [days]);
 
     const updateRecordSurgeons = useCallback((patientId: number, surgeonIds: number[]) => {
         setRecords(prev => prev.map(r =>
@@ -172,7 +168,7 @@ export default function PlanningBoard() {
             const targetPatient = records.find(r => r.id === targetPatientId);
             if (targetPatient) {
                 const targetDay = targetPatient.planning_day;
-                if (!targetDay || targetDay === 'A définir' || !DAYS.includes(targetDay)) {
+                if (!targetDay || targetDay === 'A définir' || !days.includes(targetDay)) {
                     targetColumnId = 'column-Pool';
                 } else {
                     targetColumnId = `column-${targetDay}`;
@@ -188,7 +184,7 @@ export default function PlanningBoard() {
         if (currentDay !== newDay) {
             updateRecordDay(patient.id, newDay);
         }
-    }, [records, updateRecordDay]);
+    }, [records, updateRecordDay, days, columnIdToDay]);
 
     // ─── Bulk Actions ─────────────────────────────────────────────────
     const bulkAssignToDay = useCallback((day: string) => {
@@ -215,12 +211,13 @@ export default function PlanningBoard() {
 
     // ─── Auto-Suggest ─────────────────────────────────────────────────
     const handleAutoSuggest = useCallback(async () => {
-        const unplanned = records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !DAYS.includes(r.planning_day));
+        const unplanned = records.filter(r => isUnscheduled(r.planning_day));
+        if (!days.length) return;
         if (unplanned.length === 0) return;
 
-        const placements = autoSuggestPlacements(unplanned, recordsByDay);
+        const placements = autoSuggestPlacements(unplanned, recordsByDay, days);
 
-        if (!await confirm({ title: 'Auto-planifier les patients ?', message: `${unplanned.length} patient(s) seront répartis. Les patients éloignés et les bébés seront placés en début de semaine.`, confirmLabel: 'Auto-planifier' })) return;
+        if (!await confirm({ title: 'Auto-planifier les patients ?', message: `${unplanned.length} patient(s) seront répartis. Les patients éloignés et les bébés seront placés en début du calendrier.`, confirmLabel: 'Auto-planifier' })) return;
 
         setRecords(prev => prev.map(r => {
             const newDay = placements[r.id!];
@@ -230,12 +227,13 @@ export default function PlanningBoard() {
             }
             return r;
         }));
-    }, [confirm, records, recordsByDay]);
+    }, [confirm, records, recordsByDay, days]);
 
     // ─── Save ─────────────────────────────────────────────────────────
     const handleSave = useCallback(async () => {
         if (dirtyRecordIds.size === 0) return;
 
+        if (records.some(record => dirtyRecordIds.has(record.id) && !isUnscheduled(record.planning_day) && !days.includes(record.planning_day))) { notify('Le calendrier a changé. Choisissez une date d’opération valide avant de sauvegarder.', 'error'); return; }
         setSaving(true);
         try {
             // Group dirty records by their new planning_day
@@ -261,7 +259,7 @@ export default function PlanningBoard() {
         } finally {
             setSaving(false);
         }
-    }, [dirtyRecordIds, notify, records]);
+    }, [dirtyRecordIds, notify, records, days]);
 
     // ─── Surgeon Assignment ───────────────────────────────────────────
     const handleSurgeonSave = useCallback(async (patientId: number, surgeonIds: number[]) => {
@@ -282,7 +280,7 @@ export default function PlanningBoard() {
     }
 
     const popoverPatient = surgeonPopoverPatientId ? records.find(r => r.id === surgeonPopoverPatientId) : null;
-    const totalPlanned = DAYS.reduce((sum, day) => sum + (recordsByDay[day]?.length || 0), 0);
+    const totalPlanned = days.reduce((sum, day) => sum + (recordsByDay[day]?.length || 0), 0);
     const totalUnplanned = records.length - totalPlanned;
 
     return (
@@ -308,7 +306,7 @@ export default function PlanningBoard() {
                             {/* Auto-suggest */}
                             <button
                                 onClick={handleAutoSuggest}
-                                disabled={totalUnplanned === 0}
+                                disabled={totalUnplanned === 0 || !days.length}
                                 className="px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200"
                                 title="Placer automatiquement les patients non planifiés"
                             >
@@ -318,6 +316,7 @@ export default function PlanningBoard() {
 
                             {/* Stats */}
                             <button
+                                aria-label="Statistiques chirurgiens"
                                 onClick={() => setShowStats(true)}
                                 className="px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200"
                             >
@@ -366,6 +365,9 @@ export default function PlanningBoard() {
 
             {/* Kanban Board */}
             <main className="max-w-[1800px] mx-auto p-4">
+                {currentEdition && <OperationCalendarEditor key={currentEdition.public_id} edition={currentEdition} />}
+                {currentEdition?.planning_mode === 'dates' && !days.length && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-4 text-amber-900">Configurez les dates d’opération avant de planifier les patients. Les dates de mission incluent aussi déplacements et screening.</p>}
+                {records.some(r => !isUnscheduled(r.planning_day) && !days.includes(r.planning_day)) && <p role="status" className="mb-4 rounded-xl bg-amber-50 p-4 text-amber-900">Certains dossiers sont hors calendrier. Leurs dates sont conservées dans la colonne Non planifiés et ne seront pas réaffectées automatiquement.</p>}
                 {records.length === 0 ? (
                     <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 mt-4">
                         <div className="text-6xl mb-4">📋</div>
@@ -381,7 +383,7 @@ export default function PlanningBoard() {
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                     >
-                        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden" aria-label="Jour affiché"><button onClick={() => setFocusedDay('all')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'all' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Toute la semaine</button><button onClick={() => setFocusedDay('Pool')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'Pool' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Non planifiés</button>{DAYS.map(day => <button key={day} onClick={() => setFocusedDay(day)} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === day ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>{day}</button>)}</div>
+                        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden" aria-label="Jour affiché"><button onClick={() => setFocusedDay('all')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'all' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Tout le calendrier</button><button onClick={() => setFocusedDay('Pool')} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === 'Pool' ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>Non planifiés</button>{days.map(day => <button key={day} onClick={() => setFocusedDay(day)} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-bold ${focusedDay === day ? 'bg-indigo-600 text-white' : 'border border-slate-300 bg-white text-slate-700'}`}>{formatOperationDay(day)}</button>)}</div>
                         {/* Pool select all */}
                         {poolRecords.length > 0 && (
                             <div className="flex items-center gap-2 mb-3">
@@ -401,8 +403,9 @@ export default function PlanningBoard() {
                         <div className="flex gap-3 overflow-x-auto pb-4">
                             {/* Pool */}
                             {(focusedDay === 'all' || focusedDay === 'Pool') && <DayColumn
+                                days={days}
                                 day={POOL_KEY}
-                                displayName={`Non planifiés (${records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !DAYS.includes(r.planning_day)).length})`}
+                                displayName={`Non planifiés (${records.filter(r => !r.planning_day || r.planning_day === 'A définir' || !days.includes(r.planning_day)).length})`}
                                 patients={poolRecords}
                                 surgeons={editionSurgeons}
                                 selectedIds={selectedPoolIds}
@@ -414,11 +417,12 @@ export default function PlanningBoard() {
                             />}
 
                             {/* Day columns */}
-                            {DAYS.filter(day => focusedDay === 'all' || focusedDay === day).map(day => (
+                            {days.filter(day => focusedDay === 'all' || focusedDay === day).map(day => (
                                 <DayColumn
                                     key={day}
+                                    days={days}
                                     day={day}
-                                    displayName={day}
+                                    displayName={formatOperationDay(day)}
                                     patients={recordsByDay[day] || []}
                                     surgeons={editionSurgeons}
                                     selectedIds={new Set()}
@@ -435,6 +439,7 @@ export default function PlanningBoard() {
                             {activePatient && (
                                 <div className="opacity-90 rotate-2 scale-105">
                                     <PatientCard
+                                        days={days}
                                         patient={activePatient}
                                         surgeons={editionSurgeons}
                                         isSelected={false}
@@ -453,16 +458,16 @@ export default function PlanningBoard() {
 
             {/* Bulk action bar */}
             {selectedPoolIds.size > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600 text-white rounded-2xl px-5 py-3 shadow-xl flex items-center gap-3 z-50">
+                <div className="fixed bottom-6 left-1/2 max-w-[calc(100vw-2rem)] overflow-x-auto -translate-x-1/2 bg-indigo-600 text-white rounded-2xl px-5 py-3 shadow-xl flex items-center gap-3 z-50">
                     <span className="text-sm font-bold">{selectedPoolIds.size} sélectionné(s)</span>
                     <div className="w-px h-6 bg-white/20" />
-                    {DAYS.map(day => (
+                    {days.map(day => (
                         <button
                             key={day}
                             onClick={() => bulkAssignToDay(day)}
                             className="px-3 py-1.5 bg-white/20 rounded-lg text-xs font-bold hover:bg-white/30 transition"
                         >
-                            {day.slice(0, 3)}
+                            {formatOperationDay(day)}
                         </button>
                     ))}
                     <div className="w-px h-6 bg-white/20" />
@@ -487,6 +492,7 @@ export default function PlanningBoard() {
 
             {/* Surgeon stats panel */}
             <SurgeonStatsPanel
+                days={days}
                 records={records}
                 surgeons={editionSurgeons}
                 isOpen={showStats}

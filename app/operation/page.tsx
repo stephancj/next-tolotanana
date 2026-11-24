@@ -1,5 +1,7 @@
 'use client';
 
+import { formatOperationDay } from '@/lib/operation-calendar';
+
 import { useState, useEffect, Suspense } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { MedicalRecord, db } from '@/lib/client-db';
@@ -157,7 +159,7 @@ function OperationFormContent() {
                                 {record.last_name} {record.first_name}
                             </h1>
                             <p className="text-sm text-slate-500 mt-0.5">
-                                {record.intervention_type || 'Intervention'} • {record.planning_day}
+                                {record.intervention_type || 'Intervention'} • {formatOperationDay(record.planning_day)}
                             </p>
                         </div>
                         <button

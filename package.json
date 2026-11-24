@@ -17,7 +17,8 @@
     "db:backup": "tsx scripts/backup-neon.ts",
     "db:restore": "tsx scripts/restore-neon.ts",
     "db:cleanup-sync": "tsx scripts/cleanup-sync.ts",
-    "test:filters": "node --import tsx --test lib/patient-filters.test.ts"
+    "test:filters": "node --import tsx --test lib/patient-filters.test.ts",
+    "test": "node --import tsx --test lib/*.test.ts"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

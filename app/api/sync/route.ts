@@ -4,6 +4,8 @@ import { medicalRecords, editions, medicalAuditLog, syncChanges, syncDevices, sy
 import { asc, eq, gt, sql } from 'drizzle-orm';
 import { auditAction, auditSnapshot, changedFields, validUuid } from '@/lib/medical-audit';
 
+import { validatePlanningAssignment } from '@/lib/operation-calendar';
+
 export const dynamic = 'force-dynamic';
 const MAX_BATCH = 100;
 const toInt = (v: unknown) => (v === true || v === 1 || v === '1' || v === 'true') ? 1 : 0;
@@ -103,13 +105,15 @@ export async function POST(req: Request) {
                     }
 
                     let editionId: number | null = null;
+                    let calendar: typeof editions.$inferSelect | undefined;
                     if (record.edition_public_id) {
-                        const edition = await tx.select({ id: editions.id }).from(editions)
+                        const edition = await tx.select().from(editions)
                             .where(eq(editions.public_id, record.edition_public_id)).limit(1);
                         if (!edition.length) throw new Error('Unknown edition_public_id');
-                        editionId = edition[0].id;
+                        editionId = edition[0].id; calendar = edition[0];
                     }
 
+                    validatePlanningAssignment(record.planning_day, calendar, current[0]?.planning_day);
                     const revision = currentRevision + 1;
                     const payload = cleanPayload(record, editionId, revision);
                     const [saved] = await tx.insert(medicalRecords).values(payload)

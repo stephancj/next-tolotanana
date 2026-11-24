@@ -8,6 +8,8 @@ export interface Edition {
     year: number;
     start_date?: string;
     end_date?: string;
+    planning_mode?: 'dates' | 'legacy_weekdays';
+    operation_dates?: string[];
     description?: string;
     is_active: number;
     created_at: string;
@@ -41,7 +43,7 @@ export interface MedicalRecord {
     intervention_type: string;
     observation: string;
     program_mission: number;
-    planning_day?: string; // 'Lundi', 'Mardi', etc.
+    planning_day?: string; // ISO YYYY-MM-DD, or a weekday for legacy editions.
 
     // Pre-Op Check
     pre_op_checked?: number; // 0 or 1

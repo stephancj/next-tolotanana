@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { Edition, db } from '@/lib/client-db';
 import { getSelectedEdition, StoredEdition } from '@/lib/edition-storage';
 import EditionSelector from '@/app/components/EditionSelector';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { usePathname } from 'next/navigation';
 
 interface EditionContextType {
@@ -21,6 +22,8 @@ export function EditionProvider({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const editionOptional = pathname?.startsWith('/volunteers');
     const [currentEdition, setCurrentEditionState] = useState<Edition | null>(null);
+    const liveEdition = useLiveQuery<Edition | undefined>(async () => currentEdition?.id ? await db.editions.get(currentEdition.id) : undefined, [currentEdition?.id]);
+    const resolvedEdition = liveEdition || currentEdition;
     const [showEditionSelector, setShowEditionSelector] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -68,8 +71,8 @@ export function EditionProvider({ children }: { children: ReactNode }) {
 
     return (
         <EditionContext.Provider value={{
-            currentEdition,
-            currentEditionId: currentEdition?.id,
+            currentEdition: resolvedEdition,
+            currentEditionId: resolvedEdition?.id,
             isLoading,
             setCurrentEdition: handleSelectEdition,
             showEditionSelector,

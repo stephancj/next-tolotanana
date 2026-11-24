@@ -9,6 +9,8 @@ export const editions = pgTable('editions', {
     year: integer('year').notNull(),
     start_date: text('start_date'),
     end_date: text('end_date'),
+    planning_mode: text('planning_mode').notNull().default('dates'),
+    operation_dates: jsonb('operation_dates').$type<string[]>().notNull().default([]),
     description: text('description'),
     is_active: integer('is_active').default(1),
     registration_open: boolean('registration_open').notNull().default(false),
@@ -70,7 +72,7 @@ export const medicalRecords = pgTable('medical_records', {
     intervention_type: text('intervention_type'),
     observation: text('observation'),
     program_mission: integer('program_mission').default(0), // 0 or 1
-    planning_day: text('planning_day'), // 'Lundi', 'Mardi', etc.
+    planning_day: text('planning_day'), // ISO YYYY-MM-DD for dated editions; weekday labels for legacy editions.
 
     // Pre-Op Check
     pre_op_checked: boolean('pre_op_checked').default(false),

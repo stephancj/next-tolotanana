@@ -1,5 +1,7 @@
 'use client';
 
+import { formatOperationDay } from '@/lib/operation-calendar';
+
 import { useEffect, useRef } from 'react';
 import { MedicalRecord } from '@/lib/client-db';
 import { useTranslations } from '../providers/I18nProvider';
@@ -131,7 +133,7 @@ export default function PatientDetailModal({ record, onClose }: PatientDetailMod
                             <DetailItem label={t('fields.observation')} value={record.observation || 'N/A'} />
                             <DetailItem label={t('fields.programmed')} value={record.program_mission ? t('values.yes') : t('values.no')} />
                             {record.program_mission === 1 && (
-                                <DetailItem label={t('fields.planningDay')} value={record.planning_day || t('values.toBeDefined')} className="text-orange-600" />
+                                <DetailItem label={t('fields.planningDay')} value={record.planning_day ? formatOperationDay(record.planning_day) : t('values.toBeDefined')} className="text-orange-600" />
                             )}
                         </div>
                     </div>

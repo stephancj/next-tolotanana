@@ -3,9 +3,10 @@
 import { X } from 'lucide-react';
 import { PatientCardData, SurgeonData } from '@/lib/planning-utils';
 
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+import { formatOperationDay } from '@/lib/operation-calendar';
 
 interface SurgeonStatsPanelProps {
+    days: string[];
     records: PatientCardData[];
     surgeons: SurgeonData[];
     isOpen: boolean;
@@ -17,20 +18,20 @@ interface CellStat {
     byCategory: Record<string, number>;
 }
 
-export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }: SurgeonStatsPanelProps) {
+export default function SurgeonStatsPanel({ days, records, surgeons, isOpen, onClose }: SurgeonStatsPanelProps) {
     if (!isOpen) return null;
 
     // Build stats: surgeon × day → { total, byCategory }
     const stats: Record<number, Record<string, CellStat>> = {};
     const dayTotals: Record<string, CellStat> = {};
 
-    for (const day of DAYS) {
+    for (const day of days) {
         dayTotals[day] = { total: 0, byCategory: {} };
     }
 
     for (const surgeon of surgeons) {
         stats[surgeon.id] = {};
-        for (const day of DAYS) {
+        for (const day of days) {
             stats[surgeon.id][day] = { total: 0, byCategory: {} };
         }
     }
@@ -38,7 +39,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
     // Populate
     for (const record of records) {
         const day = record.planning_day;
-        if (!day || !DAYS.includes(day)) continue;
+        if (!day || !days.includes(day)) continue;
 
         const cat = record.diagnosis_category || record.clinical_diagnosis || 'Non catégorisé';
 
@@ -90,9 +91,9 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                                 <th className="text-left py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     Chirurgien
                                 </th>
-                                {DAYS.map(day => (
+                                {days.map(day => (
                                     <th key={day} className="text-center py-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                        {day.slice(0, 3)}
+                                        {formatOperationDay(day)}
                                     </th>
                                 ))}
                                 <th className="text-center py-2 px-3 text-xs font-bold text-indigo-500 uppercase tracking-wider">
@@ -102,7 +103,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                         </thead>
                         <tbody>
                             {surgeons.map((surgeon, idx) => {
-                                const surgeonTotal = DAYS.reduce((sum, day) => sum + (stats[surgeon.id]?.[day]?.total || 0), 0);
+                                const surgeonTotal = days.reduce((sum, day) => sum + (stats[surgeon.id]?.[day]?.total || 0), 0);
                                 return (
                                     <tr key={surgeon.id} className={idx % 2 === 0 ? 'bg-slate-50/50' : ''}>
                                         <td className="py-2.5 px-3">
@@ -111,7 +112,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                                                 <span className="text-xs text-slate-400 ml-1.5">{surgeon.specialty}</span>
                                             )}
                                         </td>
-                                        {DAYS.map(day => {
+                                        {days.map(day => {
                                             const cell = stats[surgeon.id]?.[day];
                                             if (!cell || cell.total === 0) {
                                                 return <td key={day} className="text-center py-2.5 px-3 text-slate-300">—</td>;
@@ -141,7 +142,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                             {/* Unassigned row */}
                             <tr className="border-t border-slate-200 bg-amber-50/30">
                                 <td className="py-2.5 px-3 text-sm font-bold text-amber-700 italic">Non assignés</td>
-                                {DAYS.map(day => {
+                                {days.map(day => {
                                     const dayRecords = records.filter(r => r.planning_day === day);
                                     const unassigned = dayRecords.filter(r => r.assignedSurgeonIds.length === 0).length;
                                     return (
@@ -155,7 +156,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                                 })}
                                 <td className="text-center py-2.5 px-3">
                                     <span className="font-bold text-amber-600">
-                                        {records.filter(r => DAYS.includes(r.planning_day) && r.assignedSurgeonIds.length === 0).length}
+                                        {records.filter(r => days.includes(r.planning_day) && r.assignedSurgeonIds.length === 0).length}
                                     </span>
                                 </td>
                             </tr>
@@ -163,13 +164,13 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                             {/* Totals row */}
                             <tr className="border-t-2 border-slate-300 font-bold">
                                 <td className="py-2.5 px-3 text-slate-800">Total</td>
-                                {DAYS.map(day => (
+                                {days.map(day => (
                                     <td key={day} className="text-center py-2.5 px-3 text-indigo-700">
                                         {dayTotals[day].total}
                                     </td>
                                 ))}
                                 <td className="text-center py-2.5 px-3 text-indigo-700">
-                                    {DAYS.reduce((sum, day) => sum + dayTotals[day].total, 0)}
+                                    {days.reduce((sum, day) => sum + dayTotals[day].total, 0)}
                                 </td>
                             </tr>
                         </tbody>
@@ -181,7 +182,7 @@ export default function SurgeonStatsPanel({ records, surgeons, isOpen, onClose }
                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Catégories de diagnostic</p>
                             <div className="flex flex-wrap gap-2">
                                 {Array.from(allCategories).map(cat => {
-                                    const count = records.filter(r => (r.diagnosis_category || r.clinical_diagnosis) === cat && DAYS.includes(r.planning_day)).length;
+                                    const count = records.filter(r => (r.diagnosis_category || r.clinical_diagnosis) === cat && days.includes(r.planning_day)).length;
                                     return (
                                         <span key={cat} className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
                                             {cat} ({count})

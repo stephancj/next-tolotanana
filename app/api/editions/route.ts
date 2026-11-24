@@ -2,7 +2,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/neon-db';
 import { editions } from '@/lib/schema';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
+
+import { validateOperationDates } from '@/lib/operation-calendar';
 
 // Force dynamic rendering (server-side only)
 export const dynamic = 'force-dynamic';
@@ -44,7 +46,13 @@ export async function POST(req: Request) {
                 const registrationOpen = typeof edition.registration_open === 'boolean'
                     ? edition.registration_open
                     : undefined;
+                if (edition.planning_mode !== undefined && !['dates', 'legacy_weekdays'].includes(edition.planning_mode)) throw new Error('Mode de planning invalide');
+                const calendar = {
+                    ...(edition.planning_mode === undefined ? {} : { planning_mode: edition.planning_mode }),
+                    ...(edition.operation_dates === undefined ? {} : { operation_dates: validateOperationDates(edition.operation_dates, edition) }),
+                };
                 const cleanEdition = {
+                    ...calendar,
                     public_id: edition.public_id,
                     name: edition.name,
                     place: edition.place,
@@ -80,4 +88,20 @@ export async function POST(req: Request) {
         console.error('Error syncing editions:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
+}
+
+// Only the operation calendar is changed; mission travel/screening dates remain separate.
+export async function PATCH(req: Request) {
+    const body = await req.json();
+    const existing = (await db.select().from(editions).where(eq(editions.public_id, body.public_id)).limit(1))[0];
+    if (!existing || existing.deleted) return NextResponse.json({ error: 'Édition introuvable.' }, { status: 404 });
+    if (existing.planning_mode === 'legacy_weekdays') return NextResponse.json({ error: 'Le planning historique est conservé.' }, { status: 400 });
+    let dates: string[];
+    try { dates = validateOperationDates(body.operation_dates, existing); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Dates invalides.' }, { status: 400 }); }
+    if (!body.updated_at || !Number.isFinite(new Date(body.updated_at).getTime())) return NextResponse.json({ error: 'Actualisez l’édition avant de modifier ses dates.' }, { status: 400 });
+    const updated = await db.update(editions).set({ operation_dates: dates, planning_mode: 'dates', updated_at: new Date() })
+        .where(and(eq(editions.public_id, existing.public_id), sql`date_trunc('milliseconds', ${editions.updated_at}) = ${new Date(body.updated_at).toISOString()}::timestamp`)).returning();
+    if (!updated.length) return NextResponse.json({ error: 'Le calendrier a changé sur un autre appareil. Actualisez puis réessayez.' }, { status: 409 });
+    return NextResponse.json(updated[0]);
 }

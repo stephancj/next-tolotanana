@@ -23,14 +23,14 @@ export interface SurgeonData {
     specialty?: string;
 }
 
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
 
 function getPriorityScore(patient: PatientCardData): number {
     let score = 0;
 
     // Distance scoring: far patients → higher priority (earlier days)
-    if (patient.distance === 'loin') score += 100;
-    else if (patient.distance === 'un peu loin') score += 50;
+    if (patient.distance?.toLowerCase() === 'loin') score += 100;
+    else if (patient.distance?.toLowerCase() === 'un peu loin') score += 50;
 
     // Baby scoring: young children → higher priority
     const ageYears = getAgeValue(patient.age);
@@ -47,28 +47,30 @@ function getPriorityScore(patient: PatientCardData): number {
 export function autoSuggestPlacements(
     unplannedRecords: PatientCardData[],
     existingByDay: Record<string, PatientCardData[]>,
+    days: readonly string[],
 ): Record<number, string> {
     const result: Record<number, string> = {};
+    if (!days.length) return result;
 
     // Count existing patients per day
     const dayCounts: Record<string, number> = {};
-    for (const day of DAYS) {
+    for (const day of days) {
         dayCounts[day] = (existingByDay[day] || []).length;
     }
 
     const totalPlanned = Object.values(dayCounts).reduce((s, c) => s + c, 0);
     const totalToPlace = unplannedRecords.length;
-    const maxPerDay = Math.ceil((totalPlanned + totalToPlace) / DAYS.length) + 1;
+    const maxPerDay = Math.ceil((totalPlanned + totalToPlace) / days.length) + 1;
 
     // Sort by priority descending
     const sorted = [...unplannedRecords].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
 
     for (const patient of sorted) {
         // Find the best day: earliest day that has room
-        let bestDay = DAYS[0];
+        let bestDay = days[0];
         let minCount = Infinity;
 
-        for (const day of DAYS) {
+        for (const day of days) {
             const count = dayCounts[day];
             if (count < maxPerDay && count < minCount) {
                 minCount = count;
@@ -79,7 +81,7 @@ export function autoSuggestPlacements(
         // For high-priority patients, prefer earlier days even if slightly more loaded
         const score = getPriorityScore(patient);
         if (score >= 80) {
-            for (const day of DAYS.slice(0, 2)) {
+            for (const day of days.slice(0, 2)) {
                 if (dayCounts[day] < maxPerDay) {
                     bestDay = day;
                     break;

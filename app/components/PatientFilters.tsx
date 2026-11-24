@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
+import { formatOperationDay } from '@/lib/operation-calendar';
 import { DIAGNOSES, type PatientFilters as Filters } from '@/lib/patient-filters';
 
 function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
@@ -11,8 +12,8 @@ function YesNoOptions() {
   return <><option value="yes">Oui</option><option value="no">Non</option><option value="unknown">Non renseigné</option></>;
 }
 
-export default function PatientFilters({ value, onChange, surgeons }: {
-  value: Filters; onChange: (value: Filters) => void; surgeons: { id: number; name: string }[];
+export default function PatientFilters({ value, onChange, surgeons, days }: {
+  value: Filters; onChange: (value: Filters) => void; surgeons: { id: number; name: string }[]; days: string[];
 }) {
   const ageHelpId = useId();
   const set = (key: keyof Filters, next: string | boolean) => onChange({ ...value, [key]: next });
@@ -29,7 +30,7 @@ export default function PatientFilters({ value, onChange, surgeons }: {
       <Select label="Appel effectué" value={value.called} onChange={next => set('called', next)}><YesNoOptions /></Select>
     </div>
     {value.category === 'fente' && <div className="grid gap-4 rounded-lg bg-slate-50 p-3 sm:grid-cols-2"><Select label="Type de fente" value={value.cleftType} onChange={next => set('cleftType', next)}><option value="lip">Labiale</option><option value="palate">Palatine</option><option value="both">Labio-palatine</option><option value="unknown">Non précisé</option></Select><Select label="Latéralité de la fente" value={value.laterality} onChange={next => set('laterality', next)}><option value="unilateral">Unilatérale</option><option value="bilateral">Bilatérale</option><option value="unknown">Non précisée</option></Select></div>}
-    <div className="grid gap-4 sm:grid-cols-2"><Select label="Jour" value={value.day} onChange={next => set('day', next)}><option value="undefined">Jour à définir</option>{['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].map(day => <option key={day} value={day}>{day}</option>)}</Select><Select label="Mission" value={value.programmed} onChange={next => set('programmed', next)}><option value="yes">Programmés</option><option value="no">Non programmés</option></Select></div>
+    <div className="grid gap-4 sm:grid-cols-2"><Select label="Jour" value={value.day} onChange={next => set('day', next)}><option value="undefined">Jour à définir</option>{value.day && value.day !== 'undefined' && !days.includes(value.day) && <option value={value.day}>{formatOperationDay(value.day)} (hors calendrier)</option>}{days.map(day => <option key={day} value={day}>{formatOperationDay(day)}</option>)}</Select><Select label="Mission" value={value.programmed} onChange={next => set('programmed', next)}><option value="yes">Programmés</option><option value="no">Non programmés</option></Select></div>
     <details className="border-t border-slate-200 pt-2"><summary className="min-h-11 cursor-pointer py-3 font-bold text-indigo-700">Plus de filtres{[value.preOp, value.incomplete, value.gender, value.surgeon, value.photo, value.sync].some(Boolean) ? ' — actifs' : ''}</summary><div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <Select label="Contrôle préopératoire effectué" value={value.preOp} onChange={next => set('preOp', next)}><YesNoOptions /></Select>
       <Select label="Dossier à compléter" value={value.incomplete} onChange={next => set('incomplete', next)}><option value="any">Au moins un champ manquant</option><option value="phone">Téléphone manquant</option><option value="age">Naissance et âge manquants</option><option value="gender">Sexe manquant</option><option value="address">Adresse manquante</option><option value="diagnosis">Diagnostic manquant</option></Select>

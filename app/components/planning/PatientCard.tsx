@@ -5,8 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { UserRound, ExternalLink } from 'lucide-react';
 import { PatientCardData, SurgeonData } from '@/lib/planning-utils';
 
-const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
-const DAY_OPTIONS = ['A définir', ...DAYS];
+import { formatOperationDay, isUnscheduled } from '@/lib/operation-calendar';
 
 const distanceColors: Record<string, string> = {
     'loin': 'bg-red-100 text-red-700',
@@ -23,6 +22,7 @@ const distanceLabels: Record<string, string> = {
 };
 
 interface PatientCardProps {
+    days: string[];
     patient: PatientCardData;
     surgeons: SurgeonData[];
     isSelected: boolean;
@@ -34,6 +34,7 @@ interface PatientCardProps {
 }
 
 export default function PatientCard({
+    days,
     patient,
     surgeons,
     isSelected,
@@ -145,13 +146,15 @@ export default function PatientCard({
                     <div className="flex items-center gap-1.5 mt-1">
                         {/* Day dropdown (fallback for mobile) */}
                         <select
-                            value={patient.planning_day || 'A définir'}
+                            aria-label={`Date d’opération du dossier ${patient.dossier_number}`}
+                            value={isUnscheduled(patient.planning_day) ? 'A définir' : patient.planning_day}
                             onChange={(e) => onChangePlanningDay(patient.id, e.target.value)}
                             className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1 text-slate-600 focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 appearance-none cursor-pointer"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {DAY_OPTIONS.map(d => (
-                                <option key={d} value={d}>{d}</option>
+                            {!isUnscheduled(patient.planning_day) && !days.includes(patient.planning_day) && <option value={patient.planning_day}>{formatOperationDay(patient.planning_day)} (hors calendrier)</option>}
+                            {['A définir', ...days].map(d => (
+                                <option key={d} value={d}>{formatOperationDay(d)}</option>
                             ))}
                         </select>
 
