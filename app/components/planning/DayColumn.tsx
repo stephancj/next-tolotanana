@@ -6,6 +6,7 @@ import PatientCard from './PatientCard';
 import { PatientCardData, SurgeonData } from '@/lib/planning-utils';
 
 interface DayColumnProps {
+    days: string[];
     day: string;
     displayName: string;
     patients: PatientCardData[];
@@ -19,6 +20,7 @@ interface DayColumnProps {
 }
 
 export default function DayColumn({
+    days,
     day,
     displayName,
     patients,
@@ -79,6 +81,7 @@ export default function DayColumn({
                         patients.map(patient => (
                             <PatientCard
                                 key={patient.id}
+                                days={days}
                                 patient={patient}
                                 surgeons={surgeons}
                                 isSelected={selectedIds.has(patient.id)}

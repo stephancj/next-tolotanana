@@ -44,6 +44,7 @@ async function pullMasterData() {
             const value: Partial<Edition> = {
                 public_id: e.public_id, name: e.name, place: e.place, year: e.year,
                 start_date: e.start_date, end_date: e.end_date, description: e.description,
+                planning_mode: e.planning_mode, operation_dates: e.operation_dates,
                 is_active: e.is_active ? 1 : 0, deleted: e.deleted ? 1 : 0,
                 created_at: e.created_at, updated_at: e.updated_at, sync_status: 'synced'
             };

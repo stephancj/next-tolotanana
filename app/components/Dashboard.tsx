@@ -1,5 +1,6 @@
 'use client';
 
+import { formatOperationDay, getOperationDays, isUnscheduled } from '@/lib/operation-calendar';
 import { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowRight, CalendarDays, CheckCircle2, ClipboardList, Plus, Stethoscope, Users } from 'lucide-react';
@@ -11,6 +12,7 @@ import { useRouter } from 'next/navigation';
 export default function Dashboard() {
   const { currentEdition, isLoading } = useEdition(); const router = useRouter();
   const { pendingCount, conflictCount, status } = useSync();
+  const operationDays = useMemo(() => getOperationDays(currentEdition), [currentEdition]);
   const queried = useLiveQuery<MedicalRecord[]>(() => currentEdition?.id ? db.medical_records.filter(r => r.edition_id === currentEdition.id && r.deleted !== 1).toArray() : Promise.resolve([]), [currentEdition?.id]);
   const records = useMemo(() => queried || [], [queried]);
   const stats = useMemo(() => {
@@ -18,7 +20,7 @@ export default function Dashboard() {
     return {
       total: records.length,
       today: records.filter(r => r.created_at?.startsWith(new Date().toISOString().slice(0, 10))).length,
-      unplanned: programmed.filter(r => !r.planning_day || r.planning_day === 'A définir').length,
+      unplanned: programmed.filter(r => isUnscheduled(r.planning_day) || !operationDays.includes(r.planning_day || '')).length,
       preop: programmed.filter(r => !r.pre_op_checked || !r.pre_op_call).length,
       inBlock: programmed.filter(r => r.block_entry_time && !r.block_exit_time).length,
       recovery: programmed.filter(r => r.block_exit_time && !r.discharge_time).length,
@@ -26,7 +28,7 @@ export default function Dashboard() {
       incomplete: records.filter(r => !r.last_name || !r.dossier_number || !r.clinical_diagnosis).length,
       recent: [...records].sort((a, b) => String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at))).slice(0, 6)
     };
-  }, [records]);
+  }, [records, operationDays]);
   if (isLoading || queried === undefined) return <div className="mx-auto max-w-7xl p-8"><div className="h-28 animate-pulse rounded-xl bg-slate-200" /></div>;
   const flowItems = [
     { label: 'Patients', value: stats.total, Icon: Users, path: '/list' },
@@ -51,7 +53,7 @@ export default function Dashboard() {
 
     <section aria-labelledby="flow-title" className="border-t border-slate-200 py-7"><h2 id="flow-title" className="text-xl font-black text-slate-900">État de la journée</h2><div className="mt-4 grid grid-cols-1 gap-px overflow-hidden rounded-xl bg-slate-200 min-[380px]:grid-cols-2 md:grid-cols-5">{flowItems.map(({ label, value, Icon, path }) => <button key={label} onClick={() => router.push(path)} className="bg-white p-4 text-left hover:bg-slate-50 sm:p-5"><Icon size={20} className="text-indigo-600" /><span className="mt-5 block text-3xl font-black text-slate-950">{value}</span><span className="mt-1 block text-sm font-semibold text-slate-600">{label}</span></button>)}</div></section>
 
-    <section className="grid gap-8 border-t border-slate-200 py-7 lg:grid-cols-[1fr_360px]"><div><div className="flex flex-col items-start gap-1 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between"><h2 className="text-xl font-black text-slate-900">Planning de la semaine</h2><button onClick={() => router.push('/planning')} className="min-h-11 font-bold text-indigo-700">Ouvrir le planning →</button></div><div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white">{['Lundi','Mardi','Mercredi','Jeudi','Vendredi'].map(day => { const count = records.filter(r => r.program_mission === 1 && r.planning_day === day).length; return <div key={day} className="flex min-h-12 items-center px-4"><span className="flex-1 font-semibold text-slate-700">{day}</span><span className="font-black text-slate-900">{count}</span><span className="ml-2 text-sm text-slate-500">patient{count > 1 ? 's' : ''}</span></div>; })}</div></div>
+    <section className="grid gap-8 border-t border-slate-200 py-7 lg:grid-cols-[1fr_360px]"><div><div className="flex flex-col items-start gap-1 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between"><h2 className="text-xl font-black text-slate-900">Calendrier des opérations</h2><button onClick={() => router.push('/planning')} className="min-h-11 font-bold text-indigo-700">Ouvrir le planning →</button></div><div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white">{operationDays.map(day => { const count = records.filter(r => r.program_mission === 1 && r.planning_day === day).length; return <div key={day} className="flex min-h-12 items-center px-4"><span className="flex-1 font-semibold text-slate-700">{formatOperationDay(day)}</span><span className="font-black text-slate-900">{count}</span><span className="ml-2 text-sm text-slate-500">patient{count > 1 ? 's' : ''}</span></div>; })}{!operationDays.length && <p className="p-4 text-sm text-amber-800">Dates d’opération à configurer dans le planning.</p>}</div></div>
       <div><h2 className="text-xl font-black text-slate-900">Dernières saisies</h2><div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white">{stats.recent.map(record => <button key={record.public_id} onClick={() => router.push(`/form?id=${record.id}`)} className="flex min-h-14 w-full items-center px-3 text-left hover:bg-slate-50"><span className="flex-1 truncate"><strong className="block truncate text-sm text-slate-900">{record.last_name} {record.first_name}</strong><span className="text-xs text-slate-500">{record.dossier_number || 'Sans numéro'}</span></span><ArrowRight size={16} className="text-slate-400" /></button>)}</div></div>
     </section>
 

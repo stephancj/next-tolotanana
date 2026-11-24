@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { formatOperationDay, getOperationDays, isUnscheduled } from '@/lib/operation-calendar';
 import { calculateAge } from '@/lib/age-utils';
 import { MedicalRecord, db } from '@/lib/client-db';
 import { useEdition } from '@/app/providers/EditionProvider';
@@ -316,6 +317,7 @@ const defaultState: FormState = {
 
 export default function FormPage() {
     const { currentEdition } = useEdition();
+    const operationDays = useMemo(() => getOperationDays(currentEdition), [currentEdition]);
     const router = useRouter();
     const searchParams = useSearchParams();
     const idParam = searchParams.get('id');
@@ -551,6 +553,7 @@ export default function FormPage() {
         if (!effectiveAnesthesiaObservation.trim()) next.anesthesia_observation = 'Observation anesthésique requise';
         else if (effectiveAnesthesiaObservation.includes('À renseigner')) next.anesthesia_observation = 'Complétez les lignes préremplies marquées « À renseigner »';
         if (formData.program_mission && !formData.planning_day) next.planning_day = 'Jour de planning requis';
+        if (formData.program_mission && !isUnscheduled(formData.planning_day) && !operationDays.includes(formData.planning_day) && formData.planning_day !== initialData?.planning_day) next.planning_day = 'Choisissez une date du calendrier des opérations.';
         if (!(formData.history_diabetes || formData.history_hypertension || formData.history_asthma || formData.history_cardiopathy || formData.history_none || formData.history_others.trim())) next.history = 'Renseignez au moins un antécédent ou « Aucun »';
         if (Number(formData.spo2) > 100) next.spo2 = 'La SpO₂ ne peut pas dépasser 100 %';
         if (Number(formData.temperature) && (Number(formData.temperature) < 25 || Number(formData.temperature) > 45)) next.temperature = 'Vérifiez la température saisie';
@@ -835,27 +838,21 @@ export default function FormPage() {
                                             <div id="planning_day" className="mt-4 pt-4 border-t border-orange-200/50 animate-fadeIn">
                                                 <label className="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2 block">{t('surgical.plannedDay')}</label>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {[
-                                                        { value: 'A définir', label: 'toDefine' },
-                                                        { value: 'Lundi', label: 'monday' },
-                                                        { value: 'Mardi', label: 'tuesday' },
-                                                        { value: 'Mercredi', label: 'wednesday' },
-                                                        { value: 'Jeudi', label: 'thursday' },
-                                                        { value: 'Vendredi', label: 'friday' }
-                                                    ].map(day => (
+                                                    {['A définir', ...operationDays, ...(formData.planning_day && !isUnscheduled(formData.planning_day) && !operationDays.includes(formData.planning_day) ? [formData.planning_day] : [])].map(day => (
                                                         <button
-                                                            key={day.value}
+                                                            key={day}
                                                             type="button"
-                                                            onClick={() => setField('planning_day', day.value)}
-                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day.value
+                                                            onClick={() => setField('planning_day', day)}
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${formData.planning_day === day
                                                                 ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
                                                                 : 'bg-white text-gray-500 border-orange-100 hover:border-orange-200 hover:bg-orange-50'
                                                                 }`}
                                                         >
-                                                            {tEnums(`days.${day.label}`)}
+                                                            {formatOperationDay(day)}{!isUnscheduled(day) && !operationDays.includes(day) ? ' (hors calendrier)' : ''}
                                                         </button>
                                                     ))}
                                                 </div>
+                                                {!operationDays.length && <p className="mt-2 text-sm text-amber-800">Les jours d’opération doivent être configurés dans le planning. Les dates de déplacement et de screening ne sont pas proposées.</p>}
                                                 {errors.planning_day && <p className="mt-2 text-sm font-semibold text-red-700">{errors.planning_day}</p>}
                                             </div>
                                         )}

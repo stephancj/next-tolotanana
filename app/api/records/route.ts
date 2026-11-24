@@ -5,6 +5,8 @@ import { medicalRecords, editions, medicalAuditLog, syncChanges } from '@/lib/sc
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import { auditAction, auditSnapshot, changedFields, validUuid } from '@/lib/medical-audit';
 
+import { PlanningDateError, validatePlanningAssignment } from '@/lib/operation-calendar';
+
 export async function GET() {
     try {
         const records = await db.select({ record: medicalRecords, edition_public_id: editions.public_id })
@@ -51,6 +53,11 @@ export async function PATCH(req: Request) {
             const beforeRows = ids && Array.isArray(ids) && ids.length > 0
                 ? await tx.select().from(medicalRecords).where(inArray(medicalRecords.id, ids))
                 : await tx.select().from(medicalRecords).where(eq(medicalRecords.id, id));
+            if ('planning_day' in updates) {
+                const editionIds = [...new Set(beforeRows.map(row => row.edition_id).filter((id): id is number => id !== null))];
+                const calendars = editionIds.length ? await tx.select().from(editions).where(inArray(editions.id, editionIds)) : [];
+                for (const row of beforeRows) validatePlanningAssignment(updates.planning_day, calendars.find(edition => edition.id === row.edition_id), row.planning_day);
+            }
             const updated = ids && Array.isArray(ids) && ids.length > 0
                 ? await tx.update(medicalRecords).set(sanitizedUpdates).where(inArray(medicalRecords.id, ids)).returning()
                 : await tx.update(medicalRecords).set(sanitizedUpdates).where(eq(medicalRecords.id, id)).returning();
@@ -80,6 +87,7 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ success: true, count: result.length, records: result });
 
     } catch (error) {
+        if (error instanceof PlanningDateError) return NextResponse.json({ error: error.message }, { status: 400 });
         console.error('Error updating record:', error);
         return NextResponse.json({ error: 'Failed to update record' }, { status: 500 });
     }

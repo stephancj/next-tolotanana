@@ -1,5 +1,7 @@
 'use client';
 
+import { formatOperationDay, getOperationDays } from '@/lib/operation-calendar';
+
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { MedicalRecord, Surgeon, db } from '@/lib/client-db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -176,8 +178,8 @@ export default function WorkflowPage() {
     // Get unique dates for filter dropdown
     const availableDates = useMemo(() => {
         const dates = new Set(neonRecords.map(r => r.planning_day).filter(Boolean));
-        return Array.from(dates).sort();
-    }, [neonRecords]);
+        return [...new Set([...getOperationDays(currentEdition), ...Array.from(dates)])];
+    }, [neonRecords, currentEdition]);
 
     const formatTime = (timeString?: string | null) => {
         if (!timeString) return '';
@@ -391,7 +393,7 @@ export default function WorkflowPage() {
                                 >
                                     <option value="">{t('filters.allDates')}</option>
                                     {availableDates.map(date => (
-                                        <option key={date as string} value={date as string}>{date as string}</option>
+                                        <option key={date as string} value={date as string}>{formatOperationDay(date as string)}</option>
                                     ))}
                                 </select>
                             </div>
@@ -459,7 +461,7 @@ export default function WorkflowPage() {
                                             <span>{record.age || 'Âge non renseigné'}</span>
                                             {record.planning_day && (
                                                 <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">
-                                                    📅 {record.planning_day}
+                                                    📅 {formatOperationDay(record.planning_day)}
                                                 </span>
                                             )}
                                             <span className="hidden sm:inline">•</span>
